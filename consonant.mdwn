@@ -1,0 +1,402 @@
+% Consonant Specification, Version 0.0
+% Daniel Silverstone <daniel.silverstone@codethink.co.uk>;
+  Jannis Pohlmann <jannis.pohlmann@codethink.co.uk>
+% July 18th, 2013
+
+# Definition
+
+*Consonant* is an object-relational, cross-referenced, verifiable and
+service-oriented Git object store. It is named after the adjective
+*consonant* ("characterized by harmony or agreement"), reflecting its
+focus on a unified data model and cross-store referencing and
+validation.
+
+Consonant is the name given to the overall design. Any implementation
+that implements this specification, i.e. uses the same data model and
+provides the same API, may call itself a "Consonant implementation".
+
+# Motivation
+
+One of the key aspects of our recent work on Baserock and other projects
+has been what we call *traceability*—the ability to tell how data
+changed over time, who changed what and why, and how the data in
+question looked like at a specific point in time.
+
+Two examples are:
+
+* The requirements and architecture of projects change over time. In
+  this context it is often beneficial to know who approved changes when
+  and how the planned work changed over time.
+* Kanban is a popular solution for organising work of teams. When
+  assessing project productivity and progress, it is essential to have
+  ways of telling how a kanban changed over time, e.g. how many cards
+  were moved in a day or a week. Among other things this helps
+  understanding how realistic milestones are.
+
+## Key concepts
+
+In order to support the development of applications that need traceable
+data stores, we have identified the need for the following:
+
+* A generic object store in Git:
+    - object-relational,
+    - database-like,
+    - versioned,
+    - branchable,
+    - versatile.
+* Representation of objects as YAML files:
+    - unique IDs,
+    - properties,
+    - readable and editable by humans and machines alike,
+    - plain text, useful for diffs.
+* References between objects in different data stores:
+    - verifiable,
+    - versioned.
+* Service-oriented design to allow rapid development of interconnected
+  web applications on top of Git object stores.
+
+Consonant aims to satisfy this demand by specifying
+
+* a Git/YAML based data model with schemas for type checking and
+  validation,
+* a RESTful web service API for querying and modifying git object
+  stores,
+* a mechanism to for referencing objects across git object stores,
+* a Python core library for rapid development of web services on top
+  of Consonant stores.
+
+## Why not use an existing database?
+
+There are a number of reasons for choosing Git over existing relational
+or NoSQL databases. Like NoSQL databases, Git is—at it’s core—a
+key-value store for arbitrary data. On top of this, Git offers
+versioning, branching and merging, transactions (commits),
+de-duplication, offline work and authorship information out of the box,
+whereas with other databases you would have to implement a lot of this
+yourself.
+
+# Git/YAML Data Model
+
+Representing arbitrary objects in Git requires a data model that allows
+software to be written to access and modify these objects in a unified
+way. This section describes the Consonant data model.
+
+## Git Repository
+
+Every Consonant object store is a Git repository. As such it is
+represented as a directory that holds the Git key/value store and that
+can (usually) be accessed remotely via different protocols. The Git
+key/value store consists of data that is addressed by a SHA1 of its
+content. The following data elements exist in Git:
+
+* blob: a file with specific content,
+* tree: a directory of specific trees and blobs,
+* commit: a specific tree, annotated with a list of parent commits
+  and other meta data, such as author, committer, commit message and
+  so on.
+
+All of the above are stored in Git based on the SHA1 of their contents.
+Two files with the same content would result in a single blob that may
+be referenced by different trees. Two commits that have the same parents
+and introduce the same changes will result in two different commit
+elements that reference the same tree (with the modifications made) and
+so on.
+
+In addition to the above, heads (flexible, often refered to as branches)
+and tags (fixed) can be used to point to specific commits (and therefore
+the complete history of a Git tree).
+
+Together this provides the underlying storage mechanism for generic Git
+object stores.
+
+## Directory Structure
+
+In the underlying storage mechanism, each Git commit and tree represents
+a version or variant of a Consonant store. The following elements are
+present in such a tree:
+
+1. A top-level `consonant.yaml` file that contains
+    - the store UUID,
+    - a list of schemas or schema imports that define the object
+      classes used in the store,
+    - a list of stores for referencing external objects.
+2. One top-level directory for each object class for which objects
+   have been created (e.g. `/card/`, `/lane/`, `/user/`).
+3. One directory in the corresponding object class directory for
+   each object that has been created (e.g. `/card/C1234/`,
+   `/user/john/`).
+4. One `properties.yaml` file in each object directory, holding the
+   properties of the object.
+5. An optional `attachments/` directory inside each object directory,
+   holding arbitrary file attachments in pairs of
+   `attachments/<file>` and `attachments/.<file>.yaml`
+   files, the latter holding meta data for the attachment.
+
+This is how an example tree for a simple kanban system could look like:
+
+    consonant.yaml
+    lane/
+        backlog/
+            properties.yaml
+        doing/
+            properties.yaml
+        done/
+            properties.yaml
+    card/
+        C1234/
+            properties.yaml
+                attachments/
+                    foo.txt
+                    .foo.txt.yaml
+                    bar.png
+                    .bar.png.yaml
+        .C5123/
+            properties.yaml
+            ...
+    ...
+
+## The `consonant.yaml` file
+
+This file defines the unique ID (UUID) and structure of the store as
+well as external stores that objects are or may be linking to.
+
+It is a YAML file with three top-level keys:
+
+1. `uuid`: Defines the unique ID (UUID) of the store. The format of
+   store UUIDs is specified in the *UUIDs* section.
+2. `schemas`: A mixed list of schema imports (strings) and schema
+   definitions (dictionaries) defining the object classes and object
+   properties available in the store. For the format of schema imports
+   see *Schema imports*. For the schema definitions see the *Schemas*
+   section.
+3. `stores`: A dictionary mapping (preferably short) aliases to store
+   imports (strings). The exact format is specified in *Store imports*.
+
+### Schema imports
+
+Schema imports are strings in one of the following formats, referencing
+local or external schemas:
+
+1. `<schema UUID>`: Reference to a schema by UUID. This reference is
+   resolved via the consonant registry (see the *Consonant registry*
+   section).
+2. `http://url-of-a-consonant-service.org/`: HTTP URL of a Consonant
+   service. The Consonant web API includes schema query functionality,
+   allowing services to be linked together flexibly.
+3. `/path/to/a/local/consonant/store/`: local path to a Git repository
+   holding a Consonant store.
+4. `/path/to/a/local/schema/file.yaml`: absolute or relative path to
+   a schema file.
+
+### Store imports
+
+Store imports are strings in one of the following formats, referencing
+external stores.
+
+1. `<store UUID>`: Reference to a store by UUID. This reference is
+   resolved via the consonant registry (see the *Consonant registry*
+   section).
+2. `http://url-of-a-consonant-service.org/`: HTTP URL of a Consonant
+   service.
+3. `/path/to/a/local/consonant/store/`: local path to a Git repository
+   holding a Consonant store.
+
+### Example `consonant.yaml` file
+
+    uuid: org.mykanban
+    TODO: continue here
+
+## Object class directories
+
+## Object directories
+
+### The `properties.yaml` file
+
+### The `attachments` directory
+
+## Store, Schema and Object UUIDs
+
+UUIDs for stores and schemas are required to be globally unique and
+follow the following format:
+
+([a-zA-Z_]{1}[a-zA-Z0-9_]*(\.[a-zA-Z_]{1}[a-zA-Z0-9_]*)*)?
+
+This is similar to how D-Bus names and JAVA packages/classes are
+specified. A few examples of store and schema UUIDs are:
+
+	org.myproject.stores.kanban
+	org.myproject.stores.requirements
+	org.myproject.schemas.kanban
+	org.myproject.schemas.requirements
+
+A versioning scheme is recommended if there are different, incompatible
+versions of stores and schemas, e.g.
+
+	org.myproject.schemas.kanban
+	org.myproject.schemas.kanban1
+	org.myproject.schemas.kanban2
+
+but this is not mandatory.
+
+UUIDs for objects are required to be unique within a store and follow
+the following format:
+
+	(^[:\/])+
+
+Example object UUIDs are:
+
+	Kanban cards: K10, K512, K1253
+	Issues: 5940, 234
+	Customers: uk.co.codethink, org.company.division
+
+## Metadata (meta.yaml)
+
+The meta.yaml file in the root of the tree specifies the following:
+
+The globally unique UUID of the object store
+A set of cross-referenced stores, each with an alias and either its globally unique UUID, a local path or a URL to an HTTP object store service.
+A set of schemas describing object classes used by the object store, each represented by a globally unique UUID, a local filename or a URL to an HTTP object store service.
+
+An example meta.yaml file of a Kanban store could look as follows:
+
+    uuid: org.myproject.stores.kanban
+    stores:
+        requirements: http://requirements.myproject.org/
+        customers: org.myproject.stores.customers
+        issues: http://issues.myproject.org/
+    schemas:
+        - http://kanban.myproject.org/
+
+## Schemas
+
+Schemas are files that describe the object classes available for use in
+an object store. Definitions of classes include a class name and a list
+of properties. Each property definition includes a name, basic data type
+and data type specific information (e.g. for validating strings).
+Properties may also be marked optional via the `optional=<true|false>`
+field.
+
+The following basic data types are supported:
+
++------------+--------------------------------------+-----------------------------------------------------+
+| Name       | Description                          | Extra fields                                        |
++============+======================================+=====================================================+
+| string     | A single line of text.               |                                                     |
++------------+--------------------------------------+-----------------------------------------------------+
+| regex      | A regular expression for validating  |                                                     |
+|            | the value of a string property       |                                                     |
++------------+--------------------------------------+-----------------------------------------------------+
+| text       | Multiple lines of text.              |                                                     |
++------------+--------------------------------------+-----------------------------------------------------+
+| list       | List of values of another data type. | * type - basic data type of list elements           |
++------------+--------------------------------------+-----------------------------------------------------+
+| ref        | Reference to another object.         | * *class* - name of the class of referenced objects |
+|            |                                      | * *store* - alias, UUID, path or URL to an HTTP     |
+|            |                                      |   object store service that the holds the           |
+|            |                                      |   referenced objects                                |
++------------+--------------------------------------+-----------------------------------------------------+
+
+Table: Data types supported by the generic Git object store.
+
+An example schema could look as follows
+
+    org.myproject.schemas.kanban.yaml:
+    uuid: org.myproject.schemas.kanban
+        lane:
+            title:
+                kind: string
+                regex: ^.*$
+            cards:
+                kind: list
+                type: ref
+                class: card
+            colour:
+                kind: string
+                regex: ^#([0-9abcdefABCDEF]{6})$
+        card:
+            issue:
+                kind: ref
+                class: issue
+                store: issues
+                optional: true
+
+An example schema file called `org.myproject.schemas.kanban` could look
+as follows
+
+    uuid: org.myproject.schemas.kanban
+        lane:
+            title:
+                kind: string
+                regex: ^.*$
+            cards:
+                kind: list
+                type: ref
+                class: card
+            colour:
+                kind: string
+                regex: ^#([0-9abcdefABCDEF]{6})$
+        card:
+            issue:
+                kind: ref
+                class: issue
+                store: issues
+                optional: true
+
+## Object References
+
+TODO
+
+Three types:
+
+1. Internal: `<UUID>`
+2. Simple external: `<prefix>:<UUID>` (e.g. `kanban:S1234`)
+3. Advanced external: `<prefix>@<ref>:<UUID>` (e.g. `kanban@master:S1234`)
+
+Web API convention for resolving links:
+
+* `GET /gitstore/api/1.0/resolve/<UUID>/<ref>`
+* e.g. `GET /gitstore/api/1.0/resolve/S1234/master`
+* HTTP response codes:
+    - 404 - not found
+    - 302 - found, redirecting to service-specific link (e.g.
+      <http://kanban.foo.org/card/S1234>)
+    - 351 (?) - multiple choices, i.e., ambiguous ref
+
+## Example Object Store Tree
+
+TODO
+
+# RESTful Web API for Object Stores
+
+TODO
+
+# Linking Object Stores Together
+
+TODO
+
+Config file to register local or remote stores (`~/.gitstore.conf`):
+
+    <UUID>: <local path or http:// URL>
+    <UUID>: <local path or http:// URL>
+
+# Python Base Library
+
+TODO
+
+Have a Python base library that
+
+* implements the data model based on pygit2 in a generic way
+* can spin up a RESTful web service to query and modify a given data
+  store
+* allows hooks for UUID generation, authentication, authorisation etc.
+  to develop an LDAP authentication layer and specific web applications
+  for different services (MUSTARD, Kanban) on top:
+
+        /gitstore/api/1.0/resolve/...
+        /gitstore/api/1.0/create/...
+        /gitstore/api/1.0/delete/...
+        /gitstore/api/1.0/hide/...
+        /gitstore/api/1.0/modify/...
+* uses <http://sendapatch.se/projects/pylibmc/> for caching parsed YAML
+  blobs (which is the thing that is likely to slow things down most)
+
