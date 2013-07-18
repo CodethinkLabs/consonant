@@ -200,11 +200,11 @@ text    Multiple lines of text.
 
 list    List of values of another data type.  type - basic data type of list elements
 
-ref     Reference to another object.          class - name of the class of referenced
-                                              objects
-                                              store - alias, UUID, path or URL to an
-                                              HTTP object store service that the
-                                              holds the referenced objects
+ref     Reference to another object.          *class* - name of the class of
+                                              referenced objects, *store* - alias,
+                                              UUID, path or URL to an HTTP object
+                                              store service that the holds the
+                                              referenced objects
 -------------------------------------------------------------------------------------
 
 Table: Data types supported by the generic Git object store.
@@ -230,4 +230,84 @@ An example schema could look as follows
                 class: issue
                 store: issues
                 optional: true
+
+An example schema file called `org.myproject.schemas.kanban` could look
+as follows
+
+    uuid: org.myproject.schemas.kanban
+        lane:
+            title:
+                kind: string
+                regex: ^.*$
+            cards:
+                kind: list
+                type: ref
+                class: card
+            colour:
+                kind: string
+                regex: ^#([0-9abcdefABCDEF]{6})$
+        card:
+            issue:
+                kind: ref
+                class: issue
+                store: issues
+                optional: true
+
+## Object References
+
+TODO
+
+Three types:
+
+1. Internal: `<UUID>`
+2. Simple external: `<prefix>:<UUID>` (e.g. `kanban:S1234`)
+3. Advanced external: `<prefix>@<ref>:<UUID>` (e.g. `kanban@master:S1234`)
+
+Web API convention for resolving links:
+
+* `GET /gitstore/api/1.0/resolve/<UUID>/<ref>`
+* e.g. `GET /gitstore/api/1.0/resolve/S1234/master`
+* HTTP response codes:
+    - 404 - not found
+    - 302 - found, redirecting to service-specific link (e.g.
+      <http://kanban.foo.org/card/S1234>)
+    - 351 (?) - multiple choices, i.e., ambiguous ref
+
+## Example Object Store Tree
+
+TODO
+
+# RESTful Web API for Object Stores
+
+TODO
+
+# Linking Object Stores Together
+
+TODO
+
+Config file to register local or remote stores (`~/.gitstore.conf`):
+
+    <UUID>: <local path or http:// URL>
+    <UUID>: <local path or http:// URL>
+
+# Python Base Library
+
+TODO
+
+Have a Python base library that
+
+* implements the data model based on pygit2 in a generic way
+* can spin up a RESTful web service to query and modify a given data
+  store
+* allows hooks for UUID generation, authentication, authorisation etc.
+  to develop an LDAP authentication layer and specific web applications
+  for different services (MUSTARD, Kanban) on top:
+
+        /gitstore/api/1.0/resolve/...
+        /gitstore/api/1.0/create/...
+        /gitstore/api/1.0/delete/...
+        /gitstore/api/1.0/hide/...
+        /gitstore/api/1.0/modify/...
+* uses <http://sendapatch.se/projects/pylibmc/> for caching parsed YAML
+  blobs (which is the thing that is likely to slow things down most)
 
