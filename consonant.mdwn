@@ -3,19 +3,21 @@
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
 % July 19th, 2013
 
-# Definition
+# Introduction
+
+## What is Consonant?
 
 *Consonant* is an object-relational, cross-referenced, verifiable and
-service-oriented Git object store. It is named after the adjective
-*consonant* ("characterized by harmony or agreement"), reflecting its
-focus on a unified data model and cross-store referencing and
-validation.
+service-oriented Git object store and corresponding web API. It is named
+after the adjective *consonant* ("characterized by harmony or
+agreement"), reflecting its focus on a unified data model and
+cross-store referencing and validation.
 
 Consonant is the name given to the overall design. Any implementation
 that implements this specification, i.e. uses the same data model and
 provides the same API, may call itself a "Consonant implementation".
 
-# Motivation
+## Motivation
 
 One of the key aspects of our recent work on Baserock and other projects
 has been what we call *traceability*—the ability to tell how data
@@ -61,9 +63,7 @@ Consonant aims to satisfy this demand by specifying
   validation,
 * a RESTful web service API for querying and modifying git object
   stores,
-* a mechanism to for referencing objects across git object stores,
-* a Python core library for rapid development of web services on top
-  of Consonant stores.
+* a mechanism to for referencing objects across git object stores.
 
 ## Why not use an existing database?
 
@@ -75,16 +75,26 @@ de-duplication, offline work and authorship information out of the box,
 whereas with other databases you would have to implement a lot of this
 yourself.
 
-# Behind the scenes: the data model
+## Terminology
 
-Representing arbitrary objects in Git requires a data model that allows
-software to be written to access and modify these objects in a unified
-way. This section describes the Consonant data model.
+* A `Consonant store` is a Git repository that follows the Consonant
+  data model.
+* A `Consonant service` is a service that provides access to a
+  Consonant store via the standard RESTful Consonant web API.
+* A `Consonant register` is a local mapping of schema and store UUIDs
+  to Consonant services.
+* A `Consonant schema` is a YAML file defining classes for objects with
+  typed properties.
 
-## Key elements
+# Consonant stores / data model
 
-The central elements of the data model that are specified in the
-following sections are:
+Representing arbitrary objects in Git requires a unified data model,
+allowing different software implementions to access and modify these
+objects in a compatible way. This section describes the data model for
+Consonant stores.
+
+The central elements of the data model specified in the following
+sections are:
 
 * store repositories and store imports,
 * schemas and schema imports,
@@ -95,15 +105,15 @@ following sections are:
 
 ## Store repository
 
-Every Consonant object store is a Git repository. As such it is
-represented as a directory that holds the Git key/value store and that
-can (usually) be accessed remotely via different protocols. The Git
-key/value store consists of data that is addressed by a SHA1 of its
-content. The following data elements exist in Git:
+Every Consonant store is a Git repository. As such it is represented as
+a directory that holds the Git key/value store and that can (usually)
+be accessed remotely via different protocols. The Git key/value store
+consists of data that is addressed by a SHA1 of its content. The
+following data elements exist in Git:
 
-* blob: a file with specific content,
-* tree: a directory of specific trees and blobs,
-* commit: a specific tree, annotated with a list of parent commits
+* `blob`: a file with specific content,
+* `tree`: a directory of specific trees and blobs,
+* `commit`: a specific tree, annotated with a list of parent commits
   and other meta data, such as author, committer, commit message and
   so on.
 
@@ -121,28 +131,31 @@ the complete history of a Git tree).
 Together this provides the underlying storage mechanism for Consonant
 stores.
 
-## Tree structure
+## Trees and their structure
 
-In the underlying storage mechanism, each Git commit/tree represents
-a version or variant of a Consonant store. The following elements are
-present in such a tree:
+Each Git tree (associated with a commit or not) represents a particular
+version or revision of the store's data. The following elements are
+present in a tree:
 
 1. A top-level `consonant.yaml` file that contains
     - the store UUID,
-    - a list of schemas or schema imports that define the object
-      classes used in the store,
-    - a list of stores for referencing external objects.
+    - a reference to the schema defining the object classes used in
+      the store,
+    - a set of aliased references to external services for
+      cross-linking.
 2. One top-level directory for each object class for which objects
    have been created (e.g. `/card/`, `/lane/`, `/user/`).
 3. One directory in the corresponding object class directory for
    each object that has been created (e.g. `/card/C1234/`,
-   `/user/john/`).
-4. One `properties.yaml` file in each object directory, holding the
+   `/lane/backlog/`).
+4. One `properties.yaml` file in each object directory, storing the
    properties of the object.
 5. An optional `attachments/` directory inside each object directory,
-   holding arbitrary file attachments in pairs of
-   `attachments/<file>` and `attachments/.<file>.yaml`
-   files, the latter holding meta data for the attachment.
+   holding arbitrary attachments in pairs of `attachments/<name>` and
+   `attachments/.<name>.yaml` files, the latter storing attachment meta
+   data.
+
+### Example tree
 
 This is how an example tree for a simple kanban system could look like:
 
@@ -174,42 +187,39 @@ It is a YAML file with three top-level keys:
 
 1. `uuid`: Defines the unique ID (UUID) of the store. The format of
    store UUIDs is specified in the *UUIDs* section.
-2. `schemas`: A mixed list of schema imports (strings) and schema
-   definitions (dictionaries) defining the object classes and object
-   properties available in the store. For the format of schema imports
-   see *Schema imports*. For the schema definitions see the *Schemas*
-   section.
-3. `stores`: A dictionary mapping (preferably short) aliases to store
-   imports (strings). The exact format is specified in *Store imports*.
+2. `schema`: A schema reference stating the schema being used in the
+   store. This schema defines the object classes available in the store
+   and specifies names and types of object properties. For the format
+   of schema references see *Schema references*.
+3. `services`: A dictionary mapping (preferably short) aliases to
+   service references, allowing short and readable cross-references to
+   objects in external stores. The exact format of service references
+   is specified in *Service references*.
 
-### Schema imports
+### Schema references
 
-Schema imports are strings in one of the following formats, referencing
-local or external schemas:
+Schema references are strings in one of the following formats,
+referencing local or remote schemas:
 
 1. `<schema UUID>`: Reference to a schema by UUID. This reference is
-   resolved via the consonant registry (see the *Consonant registry*
+   resolved via the consonant register (see the *Consonant register*
    section).
-2. `http://url-of-a-consonant-service.org/`: HTTP URL of a Consonant
-   service. The Consonant web API includes schema query functionality,
-   allowing services to be linked together flexibly.
-3. `/path/to/a/local/consonant/store/`: local path to a Git repository
-   holding a Consonant store.
-4. `/path/to/a/local/schema/file.yaml`: absolute or relative path to
-   a schema file.
+2. `http://url.of.a.consonant.service/`: HTTP URL of a Consonant
+   service. The Consonant web API supports querying the schema being
+   used in a store, allowing services to be linked together remotely
+   and in flexible ways.
+3. `http://url.to.a/schema.yaml`: HTTP URL to a remote schema file.
+4. `file:///path/to/a/schema.yaml`: Path to a local schema file.
 
-### Store imports
+### Service references
 
-Store imports are strings in one of the following formats, referencing
-external stores.
+Service references are strings in one of the following formats,
+referencing external Consonant services.
 
-1. `<store UUID>`: Reference to a store by UUID. This reference is
-   resolved via the consonant registry (see the *Consonant registry*
+1. `<service UUID>`: Reference to a service by UUID. This reference is
+   resolved via the consonant register (see the *Consonant register*
    section).
-2. `http://url-of-a-consonant-service.org/`: HTTP URL of a Consonant
-   service.
-3. `/path/to/a/local/consonant/store/`: local path to a Git repository
-   holding a Consonant store.
+2. `http://url.of.a.consonant.store/`: HTTP URL of a Consonant service.
 
 ### Example `consonant.yaml` file
 
@@ -335,6 +345,60 @@ The YAML meta data in `.patch-v1.patch.yaml` could look like this:
       for-loop in `bla.c`.
     patch: true
     content-type: text/plain
+
+## UUIDs
+
+TODO
+
+## The Consonant register
+
+The *Consonant register* is a special configuration file that allows
+to register Consonant stores and schemas system-wide or per-user. It is
+is used to resolve UUID-based schema and store imports in
+`consonant.yaml`.
+
+The system-wide and per-user register is located according to the
+[XDG Base Directory Specification](http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html),
+that is, the system-wide register is stored in
+`$XDG_CONFIG_DIRS/consonant/register.yaml`, the per-user register is
+stored in `$XDG_CONFIG_HOME/consonant/register.yaml`.
+
+Registry files are YAML files that contain the following two keys:
+
+1. `schemas`: a dictionary mapping schema UUIDs to fully qualified
+   schema locations (HTTP schema query URLs, local store
+   repositories or or local schema files).
+2. `stores`: a dictionary mapping store UUIDs to fully qualified store
+   locations (HTTP service URLs or local store repositories).
+
+Whenever a schema or store UUID mapping appears in the system-wide
+register *and* the per-user register, the mapping the user register
+takes precedence and overrides the system-wide mapping.
+
+### Example register
+
+The following examples shows a hypothetical system and user register
+defining mappings for schemas and stores for a kanban and bug tracking
+system. The user mapping for the bug tracker overrides the system-wide
+setting.
+
+System register:
+
+    schemas:
+        org.project.kanban.schema: http://kanban.project.org/
+        org.project.bugs.schema:   http://bugs.project.org/
+    stores:
+        org.project.kanban.store:  http://kanban.project.org/
+        org.project.bugs.store:    http://bugs.project.org/
+
+Registry of user `jeff`:
+
+    stores:
+        org.project.bugs.store:    /home/jeff/project/bugs/
+
+## Schemas
+
+# Consonant services / data interface
 
 <!--
 ## Store, Schema and Object UUIDs
