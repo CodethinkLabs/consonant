@@ -1,7 +1,7 @@
 % Consonant Specification, Version 0.0
-% Daniel Silverstone <daniel.silverstone@codethink.co.uk>;
-  Jannis Pohlmann <jannis.pohlmann@codethink.co.uk>
-% July 18th, 2013
+% Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
+  Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
+% July 19th, 2013
 
 # Definition
 
@@ -68,20 +68,32 @@ Consonant aims to satisfy this demand by specifying
 ## Why not use an existing database?
 
 There are a number of reasons for choosing Git over existing relational
-or NoSQL databases. Like NoSQL databases, Git is—at it’s core—a
+or NoSQL databases. Like NoSQL databases, Git is—at its core—a
 key-value store for arbitrary data. On top of this, Git offers
 versioning, branching and merging, transactions (commits),
 de-duplication, offline work and authorship information out of the box,
 whereas with other databases you would have to implement a lot of this
 yourself.
 
-# Git/YAML Data Model
+# Behind the scenes: the data model
 
 Representing arbitrary objects in Git requires a data model that allows
 software to be written to access and modify these objects in a unified
 way. This section describes the Consonant data model.
 
-## Git Repository
+## Key elements
+
+The central elements of the data model that are specified in the
+following sections are:
+
+* store repositories and store imports,
+* schemas and schema imports,
+* classes,
+* objects,
+* properties,
+* attachments.
+
+## Store repository
 
 Every Consonant object store is a Git repository. As such it is
 represented as a directory that holds the Git key/value store and that
@@ -106,12 +118,12 @@ In addition to the above, heads (flexible, often refered to as branches)
 and tags (fixed) can be used to point to specific commits (and therefore
 the complete history of a Git tree).
 
-Together this provides the underlying storage mechanism for generic Git
-object stores.
+Together this provides the underlying storage mechanism for Consonant
+stores.
 
-## Directory Structure
+## Tree structure
 
-In the underlying storage mechanism, each Git commit and tree represents
+In the underlying storage mechanism, each Git commit/tree represents
 a version or variant of a Consonant store. The following elements are
 present in such a tree:
 
@@ -143,8 +155,8 @@ This is how an example tree for a simple kanban system could look like:
         done/
             properties.yaml
     card/
-        C1234/
-            properties.yaml
+        C1234/
+            properties.yaml
                 attachments/
                     foo.txt
                     .foo.txt.yaml
@@ -152,8 +164,6 @@ This is how an example tree for a simple kanban system could look like:
                     .bar.png.yaml
         .C5123/
             properties.yaml
-            ...
-    ...
 
 ## The `consonant.yaml` file
 
@@ -203,17 +213,130 @@ external stores.
 
 ### Example `consonant.yaml` file
 
-    uuid: org.mykanban
-    TODO: continue here
+The following example shows a hypothetical `consonant.yaml` file for
+a kanban system that uses its own schema and supports cross-references
+to a bug tracking system built on top of Consonant.
+
+    uuid: org.yourproject.kanban.store
+    schemas:
+        - org.yourproject.kanban.schema
+    stores:
+        bugs: http://bugs.yourproject.org/
 
 ## Object class directories
 
+Each class for which objects have been created in a Consonant store is
+represented by a top-level directory that is named after the class name.
+The class name in turn is defined by one of the schema listed in the
+store's `consonant.yaml` file.
+
+Examples are `/card/`, `/lane/`, `/milestone/` for card, lane and
+milestone objects in a kanban system or `/project/`, `/component/` and
+`/issue/` for project, component and issue objects in a bug tracker.
+
 ## Object directories
+
+Each object created in a Consonant store is represented by an object
+directory inside the corresponding class directory. Object directories
+are named after object UUIDs.
+
+Examples are `/card/C423/` (for a kanban card with the number 423),
+`/lane/backlog/` (for a backlog lane in a kanban system) and
+`/milestone/15/` (for the 15th milestone defined in a project).
+
+The format of object UUIDs may vary and is specified in one of the
+schema used by the store (see the *Schemas* section for more details).
+
+Objects would be useless if all they consisted of was a class and a
+name. Like in many programming languages, Consonant objects have
+so-called properties. They come in three variants:
+
+1. a special property to hide objects,
+2. properties specified by schemas and defined in `properties.yaml`
+   files,
+3. arbitrary data properties called *attachments*.
+
+### Hidden objects
+
+A special feature of Consonant stores is that objects can be hidden by
+prepending their directory name with a dot (e.g. `/card/.C503/`). This
+is similar to hiding files on file systems.
+
+Hidden objects are not parsed and loaded into memory unless explicitly
+requested. Depending on the amount of data, this can result in
+significant performance boosts. However, hidden objects still remain
+present in the store so that their existence and history can be
+detected without having to locate them in the revision history of
+the entire store.
+
+Hiding files can have different semantic benefits. One example would
+be "archiving" cards in a kanban system in order to mark them as
+obsolete while at the same time preserving a view of all archived
+cards for project managers and statistics.
 
 ### The `properties.yaml` file
 
+The `properties.yaml` files contain the mandatory and optional
+properties for individual objects. There is one file for each object,
+located in the object directory (e.g. `/card/C593/properties.yaml`).
+
+Like the file extension suggests, `properties.yaml` files are YAML
+files. They each hold a flat dictionary that maps property names to
+property values. The data types supported for properties are explained
+in the *Schemas* section.
+
+#### Example `properties.yaml` file
+
+The following example shows a hypothetical `properties.yaml` file for
+a lane in a kanban system, including the properties `name` (string),
+`description` (text, multi-line), `color` (string), `cards` (list of
+internal references to objects of the class `card`).
+
+    name: Doing
+    description: |
+      Tasks that are currently being worked on.
+    color: #ffa500
+    cards:
+      - C513
+      - C506
+      - C654
+
 ### The `attachments` directory
 
+In addition to regular properties that are defined by schemas, each
+object may store arbitrary properties called *attachments*. These are
+stored as pairs of files in an `attachments/` subdirectory inside the
+object directory (e.g. `/card/C854/attachments/`).
+
+Attachments consist of a name (e.g. `comments` or `mockup.png`),
+the actual data and arbitrary YAML meta data. All this is stored in
+the `attachments/` directory as follows:
+
+1. `attachments/NAME`: holds the attachment data,
+2. `attachments/.NAME.yaml`: holds the attachment meta data,
+
+where `NAME` is the name of the attachment.
+
+#### Example `attachments` directory
+
+The following example shows a hypothetical listing of an attachments
+directory for issue `6031` in a bug tracker:
+
+    /issue/6031/attachments/patch-v1.patch
+    /issue/6031/attachments/.patch-v1.patch.yaml
+    /issue/6031/attachments/patch-v2.patch
+    /issue/6031/attachments/.patch-v2.patch.yaml
+
+The YAML meta data in `.patch-v1.patch.yaml` could look like this:
+
+    description: |
+      This patch is a first attempt at fixing issue 6031. It is
+      caused by accidently overwriting the value of `foo` in the
+      for-loop in `bla.c`.
+    patch: true
+    content-type: text/plain
+
+<!--
 ## Store, Schema and Object UUIDs
 
 UUIDs for stores and schemas are required to be globally unique and
@@ -224,48 +347,30 @@ follow the following format:
 This is similar to how D-Bus names and JAVA packages/classes are
 specified. A few examples of store and schema UUIDs are:
 
-	org.myproject.stores.kanban
-	org.myproject.stores.requirements
-	org.myproject.schemas.kanban
-	org.myproject.schemas.requirements
+	  org.myproject.stores.kanban
+    org.myproject.stores.requirements
+    org.myproject.schemas.kanban
+    org.myproject.schemas.requirements
 
 A versioning scheme is recommended if there are different, incompatible
 versions of stores and schemas, e.g.
 
-	org.myproject.schemas.kanban
-	org.myproject.schemas.kanban1
-	org.myproject.schemas.kanban2
+	  org.myproject.schemas.kanban
+    org.myproject.schemas.kanban1
+    org.myproject.schemas.kanban2
 
 but this is not mandatory.
 
 UUIDs for objects are required to be unique within a store and follow
 the following format:
 
-	(^[:\/])+
+    (^[:\/])+
 
 Example object UUIDs are:
 
-	Kanban cards: K10, K512, K1253
-	Issues: 5940, 234
-	Customers: uk.co.codethink, org.company.division
-
-## Metadata (meta.yaml)
-
-The meta.yaml file in the root of the tree specifies the following:
-
-The globally unique UUID of the object store
-A set of cross-referenced stores, each with an alias and either its globally unique UUID, a local path or a URL to an HTTP object store service.
-A set of schemas describing object classes used by the object store, each represented by a globally unique UUID, a local filename or a URL to an HTTP object store service.
-
-An example meta.yaml file of a Kanban store could look as follows:
-
-    uuid: org.myproject.stores.kanban
-    stores:
-        requirements: http://requirements.myproject.org/
-        customers: org.myproject.stores.customers
-        issues: http://issues.myproject.org/
-    schemas:
-        - http://kanban.myproject.org/
+    Kanban cards: K10, K512, K1253
+    Issues: 5940, 234
+    Customers: uk.co.codethink, org.company.division
 
 ## Schemas
 
@@ -399,4 +504,4 @@ Have a Python base library that
         /gitstore/api/1.0/modify/...
 * uses <http://sendapatch.se/projects/pylibmc/> for caching parsed YAML
   blobs (which is the thing that is likely to slow things down most)
-
+-->
