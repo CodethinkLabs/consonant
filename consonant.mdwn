@@ -3,6 +3,14 @@
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
 % July 19th, 2013
 
+# Known Issues
+
+* What if the `consonant.yaml` file changes over time. What if the
+  schema being used changes incompatibly or the `consonant.yaml` file
+  out of a sudden points to a different version of a schema?
+  What if the UUID changes? What if the schema is different between
+  different branches of a store?
+
 # Introduction
 
 ## What is Consonant?
@@ -20,37 +28,22 @@ provides the same API, may call itself a "Consonant implementation".
 ## Motivation
 
 One of the key aspects of our recent work on Baserock and other projects
-has been what we call *traceability*—the ability to tell how data
+has been something we call *traceability*—the ability to tell how data
 changed over time, who changed what and why, and how the data in
 question looked like at a specific point in time.
 
 Two examples are:
 
-* The requirements and architecture of projects change over time. In
-  this context it is often beneficial to know who approved changes when
-  and how the planned work changed over time.
+* The requirements and architecture of projects tend to change over
+  time. In this context it is often beneficial to understand who
+  approved changes when and how the planned work changed over time.
 * Kanban is a popular solution for organising work of teams. When
   assessing project productivity and progress, it is essential to have
   ways of telling how a kanban changed over time, e.g. how many cards
-  were moved in a day or a week. Among other things this helps
-  understanding how realistic milestones are.
-
-## Key concepts
-
-In order to support the development of applications that need traceable
-data stores, we have identified the need for the following:
-
-* A generic object store in Git:
-    - object-relational,
-    - database-like,
-    - versioned,
-    - branchable,
-    - versatile.
-* Representation of objects as YAML files:
-    - unique IDs,
-    - properties,
-    - readable and editable by humans and machines alike,
-    - plain text, useful for diffs.
+  were moved in a day or a week or how the cards linked to a milestone
+  have changed from week to week. Among other things this helps
+  understanding how realistic milestones are and whether adjustments
+  have to be maddiffs.
 * References between objects in different data stores:
     - verifiable,
     - versioned.
@@ -61,9 +54,9 @@ Consonant aims to satisfy this demand by specifying
 
 * a Git/YAML based data model with schemas for type checking and
   validation,
-* a RESTful web service API for querying and modifying git object
-  stores,
-* a mechanism to for referencing objects across git object stores.
+* a RESTful web API for querying and modifying object stores based on
+  this data model,
+* a mechanism to for referencing objects across different stores.
 
 ## Why not use an existing database?
 
@@ -77,14 +70,17 @@ yourself.
 
 ## Terminology
 
+This specification aims to use consistent terms for the different
+aspects of the Consonant design.
+
 * A `Consonant store` is a Git repository that follows the Consonant
   data model.
 * A `Consonant service` is a service that provides access to a
-  Consonant store via the standard RESTful Consonant web API.
-* A `Consonant register` is a local mapping of schema and store UUIDs
-  to Consonant services.
-* A `Consonant schema` is a YAML file defining classes for objects with
-  typed properties.
+  Consonant store via the Consonant web API.
+* A `Consonant register` is a YAML file that maps Consonant schema and
+  service UUIDs to Consonant services.
+* A `Consonant schema` is a YAML file that defines classes for objects
+  with typed properties.
 
 # Consonant stores / data model
 
@@ -96,8 +92,8 @@ Consonant stores.
 The central elements of the data model specified in the following
 sections are:
 
-* store repositories and store imports,
-* schemas and schema imports,
+* store repositories and service references,
+* schemas and schema references,
 * classes,
 * objects,
 * properties,
@@ -133,9 +129,9 @@ stores.
 
 ## Trees and their structure
 
-Each Git tree (associated with a commit or not) represents a particular
-version or revision of the store's data. The following elements are
-present in a tree:
+Each Git tree, whether associated with a commit or not, represents a
+particular version or revision of the store's data. The following
+elements are present in a tree:
 
 1. A top-level `consonant.yaml` file that contains
     - the store UUID,
@@ -170,11 +166,11 @@ This is how an example tree for a simple kanban system could look like:
     card/
         C1234/
             properties.yaml
-                attachments/
-                    foo.txt
-                    .foo.txt.yaml
-                    bar.png
-                    .bar.png.yaml
+            attachments/
+                foo.txt
+                .foo.txt.yaml
+                bar.png
+                .bar.png.yaml
         .C5123/
             properties.yaml
 
@@ -202,12 +198,12 @@ Schema references are strings in one of the following formats,
 referencing local or remote schemas:
 
 1. `<schema UUID>`: Reference to a schema by UUID. This reference is
-   resolved via the consonant register (see the *Consonant register*
+   resolved via the Consonant register (see the *Consonant register*
    section).
 2. `http://url.of.a.consonant.service/`: HTTP URL of a Consonant
    service. The Consonant web API supports querying the schema being
-   used in a store, allowing services to be linked together remotely
-   and in flexible ways.
+   used in a store, allowing services to be linked together in flexible
+   ways through references between objects.
 3. `http://url.to.a/schema.yaml`: HTTP URL to a remote schema file.
 4. `file:///path/to/a/schema.yaml`: Path to a local schema file.
 
@@ -219,7 +215,8 @@ referencing external Consonant services.
 1. `<service UUID>`: Reference to a service by UUID. This reference is
    resolved via the consonant register (see the *Consonant register*
    section).
-2. `http://url.of.a.consonant.store/`: HTTP URL of a Consonant service.
+2. `http://url.of.a.consonant.service/`: HTTP URL of a Consonant
+   service.
 
 ### Example `consonant.yaml` file
 
@@ -229,22 +226,22 @@ to a bug tracking system built on top of Consonant.
 
     uuid: org.yourproject.kanban.store
     schemas:
-        - org.yourproject.kanban.schema
+        - org.yourproject.kanban.schema.1
     stores:
         bugs: http://bugs.yourproject.org/
 
-## Object class directories
+## Object classes
 
-Each class for which objects have been created in a Consonant store is
-represented by a top-level directory that is named after the class name.
-The class name in turn is defined by one of the schema listed in the
-store's `consonant.yaml` file.
+Object classes are defined by the schema used in a Consonant store.
+Each class for which objects have been created is represented by
+a top-level directory that is named after the name of the class, as
+specified in the store's schema.
 
 Examples are `/card/`, `/lane/`, `/milestone/` for card, lane and
 milestone objects in a kanban system or `/project/`, `/component/` and
 `/issue/` for project, component and issue objects in a bug tracker.
 
-## Object directories
+## Objects
 
 Each object created in a Consonant store is represented by an object
 directory inside the corresponding class directory. Object directories
@@ -254,32 +251,31 @@ Examples are `/card/C423/` (for a kanban card with the number 423),
 `/lane/backlog/` (for a backlog lane in a kanban system) and
 `/milestone/15/` (for the 15th milestone defined in a project).
 
-The format of object UUIDs may vary and is specified in one of the
-schema used by the store (see the *Schemas* section for more details).
+The format of object UUIDs may vary and is specified in the schema used
+by the store (see the *Schemas* section for more details).
 
 Objects would be useless if all they consisted of was a class and a
 name. Like in many programming languages, Consonant objects have
 so-called properties. They come in three variants:
 
 1. a special property to hide objects,
-2. properties specified by schemas and defined in `properties.yaml`
-   files,
+2. properties specified by schemas and set in `properties.yaml` files,
 3. arbitrary data properties called *attachments*.
 
 ### Hidden objects
 
 A special feature of Consonant stores is that objects can be hidden by
-prepending their directory name with a dot (e.g. `/card/.C503/`). This
+prepending a dot to their directory name (e.g. `/card/.C503/`). This
 is similar to hiding files on file systems.
 
 Hidden objects are not parsed and loaded into memory unless explicitly
 requested. Depending on the amount of data, this can result in
 significant performance boosts. However, hidden objects still remain
 present in the store so that their existence and history can be
-detected without having to locate them in the revision history of
+determined without having to locate them in the revision history of
 the entire store.
 
-Hiding files can have different semantic benefits. One example would
+Hiding files can have different semantic meanings. One example would
 be "archiving" cards in a kanban system in order to mark them as
 obsolete while at the same time preserving a view of all archived
 cards for project managers and statistics.
@@ -304,16 +300,18 @@ internal references to objects of the class `card`).
 
     name: Doing
     description: |
-      Tasks that are currently being worked on.
+        Tasks that are currently being worked on. Cards are
+        being moved here from the "Backlog" and are moved to
+        "Done" after being processed.
     color: #ffa500
     cards:
-      - C513
-      - C506
-      - C654
+        - C513
+        - C506
+        - C654
 
 ### The `attachments` directory
 
-In addition to regular properties that are defined by schemas, each
+In addition to regular properties that are defined in schemas, each
 object may store arbitrary properties called *attachments*. These are
 stored as pairs of files in an `attachments/` subdirectory inside the
 object directory (e.g. `/card/C854/attachments/`).
@@ -340,102 +338,126 @@ directory for issue `6031` in a bug tracker:
 The YAML meta data in `.patch-v1.patch.yaml` could look like this:
 
     description: |
-      This patch is a first attempt at fixing issue 6031. It is
-      caused by accidently overwriting the value of `foo` in the
-      for-loop in `bla.c`.
+        This patch is a first attempt at fixing issue 6031.
+        It is caused by accidently overwriting the value of
+        `foo` in the for loop in `bla.c`.
     patch: true
     content-type: text/plain
 
 ## UUIDs
 
-TODO
+Universally unique identifiers (UUIDs) are being used to refer to other
+objects, schemas or stores/services. The term "universal" is a little
+confusing here: while creators of schemas and stores are encouraged to
+use globally unique identifiers (see below), there is no way to
+guarantee this. Identifiers of objects only have to be unique within
+a store.
+
+### Object UUIDs
+
+Identifiers of objects are required to be unique within a store. Their
+format is flexible and is defined via regular expressions in schemas.
+See the *Schemas* section for details.
+
+Despite this, there are a few characters that are excluded from object
+UUIDs:
+
+* whitespace characters such as spaces, tabs or newlines,
+* non-ASCII characters,
+* any of the following characters `:,@%()[]{}\`.
+
+### Schema UUIDs
+
+Identifiers of schemas are required to be of the form
+
+    some.domain.schemaname.1
+
+meaning that they follow a reverse domain notation similar to that used
+for Java packages/classes and D-Bus service names. A special requirement
+is the mandatory final segment of the UUID, which specifies the schema
+version.
+
+### Store/service UUIDs
+
+Identifiers of stores/services are required to be of the form
+
+    some.domain.storename
+
+meaning that they follow a reverse domain notation similar to that used
+for Java packages/classes and D-Bus service names.
 
 ## The Consonant register
 
 The *Consonant register* is a special configuration file that allows
-to register Consonant stores and schemas system-wide or per-user. It is
+to register Consonant services and schemas system-wide or per-user. It is
 is used to resolve UUID-based schema and store imports in
 `consonant.yaml`.
 
-The system-wide and per-user register is located according to the
+The Consonant register is located according to the
 [XDG Base Directory Specification](http://standards.freedesktop.org/basedir-spec/basedir-spec-latest.html),
-that is, the system-wide register is stored in
-`$XDG_CONFIG_DIRS/consonant/register.yaml`, the per-user register is
-stored in `$XDG_CONFIG_HOME/consonant/register.yaml`.
+that is, the system register is stored in
 
-Registry files are YAML files that contain the following two keys:
+    $XDG_CONFIG_DIRS/consonant/register.yaml
+
+and the user register is stored in
+
+    $XDG_CONFIG_HOME/consonant/register.yaml.
+
+Register files are YAML files that contain the following two keys:
 
 1. `schemas`: a dictionary mapping schema UUIDs to fully qualified
    schema locations (HTTP schema query URLs, local store
    repositories or or local schema files).
-2. `stores`: a dictionary mapping store UUIDs to fully qualified store
-   locations (HTTP service URLs or local store repositories).
+2. `services`: a dictionary mapping store/service UUIDs to fully
+   qualified HTTP service URLs.
 
-Whenever a schema or store UUID mapping appears in the system-wide
-register *and* the per-user register, the mapping the user register
-takes precedence and overrides the system-wide mapping.
+Whenever the same mapping appears in both, the system-wide register
+and the per-user register, the mapping in the user register takes
+precedence and overrides the system-wide one.
 
 ### Example register
 
 The following examples shows a hypothetical system and user register
 defining mappings for schemas and stores for a kanban and bug tracking
 system. The user mapping for the bug tracker overrides the system-wide
-setting.
+setting for a local installation of the bug tracking service (and
+store).
 
 System register:
 
     schemas:
-        org.project.kanban.schema: http://kanban.project.org/
-        org.project.bugs.schema:   http://bugs.project.org/
+        org.project.kanban.schema.1: http://kanban.project.org/
+        org.project.bugs.schema.1:   http://bugs.project.org/
     stores:
-        org.project.kanban.store:  http://kanban.project.org/
-        org.project.bugs.store:    http://bugs.project.org/
+        org.project.kanban.store:    http://kanban.project.org/
+        org.project.bugs.store:      http://bugs.project.org/
 
 Registry of user `jeff`:
 
     stores:
-        org.project.bugs.store:    /home/jeff/project/bugs/
+        org.project.bugs.store:      http://localhost:8080/
 
 ## Schemas
+
+Schemas are YAML files that define the object classes available for
+use in a Consonant store. Definitions of classes include
+
+* a class name and
+* a list of properties.
+
+Each property definition includes
+
+* a name,
+* a basic data type, and
+* data type specific information (e.g. for validating strings).
+
+Properties may also be marked optional via the `optional` property.
+
+## Data types
 
 # Consonant services / data interface
 
 <!--
-## Store, Schema and Object UUIDs
-
-UUIDs for stores and schemas are required to be globally unique and
-follow the following format:
-
-([a-zA-Z_]{1}[a-zA-Z0-9_]*(\.[a-zA-Z_]{1}[a-zA-Z0-9_]*)*)?
-
-This is similar to how D-Bus names and JAVA packages/classes are
-specified. A few examples of store and schema UUIDs are:
-
-	  org.myproject.stores.kanban
-    org.myproject.stores.requirements
-    org.myproject.schemas.kanban
-    org.myproject.schemas.requirements
-
-A versioning scheme is recommended if there are different, incompatible
-versions of stores and schemas, e.g.
-
-	  org.myproject.schemas.kanban
-    org.myproject.schemas.kanban1
-    org.myproject.schemas.kanban2
-
-but this is not mandatory.
-
-UUIDs for objects are required to be unique within a store and follow
-the following format:
-
-    (^[:\/])+
-
-Example object UUIDs are:
-
-    Kanban cards: K10, K512, K1253
-    Issues: 5940, 234
-    Customers: uk.co.codethink, org.company.division
-
 ## Schemas
 
 Schemas are files that describe the object classes available for use in
