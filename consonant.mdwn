@@ -15,6 +15,10 @@
   don't then wouldn't it be very confusing to just see object UUIDs
   from another store in `properties.yaml`? If we do then it's also
   weird in a way. This needs some thought.
+* Should references be enforced to be bi-directional? It could be
+  really awkward with cross-store references. Would we have to update
+  store X if an object in store Y changes its reference to an object
+  in store X? What if access control prevents this etc.pp.?
 
 # Introduction
 
@@ -538,7 +542,7 @@ The following table lists all data types supported by Consonant schemas.
 |             | same or a different Consonant store.                        |
 +-------------+-------------------------------------------------------------+
 | list        | Data type for lists of values of another basic data type.   |
-|             | Lists may not be nested.                                    |
+|             | Lists may be nested.                                        |
 +-------------+-------------------------------------------------------------+
 
 ### Properties of type `boolean`
@@ -781,9 +785,63 @@ TODO: Rethink/rework the above and continue.
 
 #### Definition
 
+List properties are defined in schemas as follows:
+
+    <name>:
+        type: list
+        elements:
+            <type definition for elements>
+
+One example would be a list of lists of strings:
+
+    <name>:
+        type: list
+        elements:
+            type: list
+            elements:
+                type: string
+
+Lists are required to always contain at least one element. The
+`optional` flag can be used to define list properties that may be empty
+(by not being set at at all).
+
 #### Usage
 
+Assume we were to define a Consonant schema for a kanban system with
+lanes and cards. Assume further that lanes maintain a list of references
+to the cards in them. The resulting schema might look like this:
+
+    uuid: org.yourproject.kanban.schema.1
+    classes:
+        lane:
+            uuid-format: ^[a-z]+$
+            properties:
+                title: string
+                cards:
+                    type: list
+                    elements:
+                        type: reference
+                        class: card
+                optional: true
+        card:
+            uuid-format: ^C[1-9][0-9]*$
+            ...
+
+A "backlog" lane with three cards could then have the following content
+in `properties.yaml`:
+
+    title: Backlog
+    cards:
+        - C198
+        - C503
+        - C93
+
 #### Values
+
+If present in `properties.yaml` files, lists must be non-empty. Empty
+list properties are realised through the `optional` flag. The allowed
+values of list elements depend entirely on the element data type
+specified.
 
 ### Example schemas
 
