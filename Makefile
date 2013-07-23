@@ -4,8 +4,8 @@ pdf:
 	pandoc --toc -S -s -N						\
 		--latex-engine=lualatex					\
 		--variable fontsize=11pt				\
-		--variable sansfont="Droid Sans"			\
-		--variable mainfont="Droid Sans"			\
+		--variable sansfont="Gillius ADF No2"			\
+		--variable mainfont="Gillius ADF No2"			\
 		--variable monofont="Droid Sans Mono"			\
 		consonant.mdwn -o consonant.pdf
 
