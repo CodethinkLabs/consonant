@@ -872,7 +872,7 @@ necessary for a simple Kanban system. It includes:
 This is pretty elaborate already. All it takes to define the above
 classes and link them together is this:
 
-    uuid: com.github.canban.schema.1
+    uuid: org.yourproject.kanban.schema.1
     classes:
       user:
         properties:
