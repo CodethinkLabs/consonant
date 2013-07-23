@@ -777,11 +777,22 @@ tracker.
 #### Values
 
 The format and allowed content of references depends on whether they
-are internal or external. Internal references are required to be set
-to the UUID of the referenced object. External references are a simple
-dictionary with two keys: `service` (a service alias resolved via
-the `consonant.yaml` file of the store) and `uuid` (the UUID of the
-referenced object.
+are internal or external. Internal references are specified in one of
+the following two ways:
+
+* `<object UUID>`: the target object's UUID or
+* a dictionary with two keys:
+    - `ref`: a Git ref, tree, commit or tag of the Consonant store and
+    - `uuid`: the target object's UUID.
+
+Similarly, external references are specified via a dictionary with
+the following keys:
+
+* `service`: a service alias resolved via the `consonant.yaml` file of
+  the store,
+* `uuid`: the UUID of the referenced object, and
+* `ref`: a Git ref, tree, commit or tag of the target Consonant store
+  (optional).
 
 ### Properties of type `list`
 
