@@ -858,7 +858,128 @@ specified.
 
 #### Example kanban schema
 
-TODO
+The following example schema defines all object classes and relations
+necessary for a simple Kanban system. It includes:
+
+* users,
+* views (different perspectives on a subset of the lanes),
+* lanes (ordered lists of cards),
+* milestones (deadlines cards can be associated with),
+* cards (small tasks assigned to one or more users, organised
+  in lanes),
+* comments (for cards) and tags (for cards and milestones).
+
+This is pretty elaborate already. All it takes to define the above
+classes and link them together is this:
+
+    uuid: com.github.canban.schema.1
+    classes:
+      user:
+        properties:
+          name:
+            type: text
+          email:
+            type: text
+      view:
+        properties:
+          title:
+            type: text
+          description:
+            type: text
+          lanes:
+            type: list
+            elements:
+              type: reference
+              class: lane
+              bidirectional: views
+      lane:
+        properties:
+          title:
+            type: text
+          description:
+            type: text
+          color:
+            type: text
+            regex: ^([0-9abcdefABCDEF]{2}){3}$
+          views:
+            type: list
+            elements:
+              type: reference
+              class: view
+              bidirectional: lanes
+          cards:
+            type: list
+            elements:
+              type: reference
+              class: card
+              bidirectional: lanes
+      milestone:
+        properties:
+          title:
+            type: text
+          description:
+            type: text
+          color:
+            type: text
+            regex: ^([0-9abcdefABCDEF]{2}){3}$
+          deadline:
+            type: text
+            regex: ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+          cards:
+            type: list
+            elements:
+              type: reference
+              class: card
+              bidirectional: lanes
+          tags:
+            type: list
+            elements:
+              type: reference
+              class: tag
+      card:
+        properties:
+          title:
+            type: text
+          description:
+            type: text
+          estimate:
+            type: int
+          lane:
+            type: reference
+            class: lane
+            bidirectional: cards
+          milestone:
+            type: reference
+            class: milestone
+            bidirectional: cards
+          assignees:
+            type: list
+            elements:
+              type: reference
+              class: user
+          comments:
+            type: list
+            elements:
+              type: reference
+              class: comment
+          tags:
+            type: list
+            elements:
+              type: reference
+              class: tag
+      comment:
+        properties:
+          author:
+            type: reference
+            class: user
+          text:
+            type: text
+      tag:
+        properties:
+          title:
+            type: text
+          description:
+            type: text
 
 #### Example issues schema
 
