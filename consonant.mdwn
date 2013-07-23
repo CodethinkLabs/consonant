@@ -1,7 +1,7 @@
 % Consonant Specification, Version 0.0
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
-% July 19th, 2013
+% July 23th, 2013
 
 # Known Issues
 
@@ -10,15 +10,6 @@
   out of a sudden points to a different version of a schema?
   What if the UUID changes? What if the schema is different between
   different branches of a store?
-* The reference stuff in the schema and `properties.yaml` is a bit odd.
-  Do we really want to specify the service UUID in the schema? If we
-  don't then wouldn't it be very confusing to just see object UUIDs
-  from another store in `properties.yaml`? If we do then it's also
-  weird in a way. This needs some thought.
-* Should references be enforced to be bi-directional? It could be
-  really awkward with cross-store references. Would we have to update
-  store X if an object in store Y changes its reference to an object
-  in store X? What if access control prevents this etc.pp.?
 
 # Introduction
 
@@ -209,12 +200,8 @@ referencing local or remote schemas:
 1. `<schema UUID>`: Reference to a schema by UUID. This reference is
    resolved via the Consonant register (see the *Consonant register*
    section).
-2. `http://url.of.a.consonant.service/`: HTTP URL of a Consonant
-   service. The Consonant web API supports querying the schema being
-   used in a store, allowing services to be linked together in flexible
-   ways through references between objects.
-3. `http://url.to.a/schema.yaml`: HTTP URL to a remote schema file.
-4. `file:///path/to/a/schema.yaml`: Path to a local schema file.
+2. `<scheme>://<url to a schema>`: URL to a schema file. Implementations
+   are required to support `http`, `https` and `file` URLs.
 
 ### Service references
 
@@ -224,8 +211,11 @@ referencing external Consonant services.
 1. `<service UUID>`: Reference to a service by UUID. This reference is
    resolved via the consonant register (see the *Consonant register*
    section).
-2. `http://url.of.a.consonant.service/`: HTTP URL of a Consonant
-   service.
+2. `<scheme>://<url to a service>`: URL to a Consonant service.
+   Implementations are required to support `http`, `https` and `file`
+   URLs. `file` URLs specify local Consonant stores rather than service
+   end points, which implies that implementations resolving `file` URLs
+   need to be able to activate services for these stores on demand.
 
 ### Example `consonant.yaml` file
 
@@ -234,10 +224,9 @@ a kanban system that uses its own schema and supports cross-references
 to a bug tracking system built on top of Consonant.
 
     uuid: org.yourproject.kanban.store
-    schemas:
-        - org.yourproject.kanban.schema.1
+    schema: org.yourproject.kanban.schema.1
     stores:
-        bugs: http://bugs.yourproject.org/
+        issues: http://issues.yourproject.org/
 
 ## Object classes
 
@@ -303,9 +292,9 @@ in the *Schemas* section.
 #### Example `properties.yaml` file
 
 The following example shows a hypothetical `properties.yaml` file for
-a lane in a kanban system, including the properties `name` (string),
-`description` (text, multi-line), `color` (string), `cards` (list of
-internal references to objects of the class `card`).
+a lane in a kanban system, including the properties `name` (text),
+`description`, `color` (text), `cards` (list of internal references
+to objects of the class `card`).
 
     name: Doing
     description: |
@@ -365,15 +354,11 @@ a store.
 ### Object UUIDs
 
 Identifiers of objects are required to be unique within a store. Their
-format is flexible and is defined via regular expressions in schemas.
-See the *Schemas* section for details.
+generation is left to Consonant implementations. However, they must be
+a mix of alphanumeric characters and dashes and must not begin or end
+with a dash:
 
-Despite this, there are a few characters that are excluded from object
-UUIDs:
-
-* whitespace characters such as spaces, tabs or newlines,
-* non-ASCII characters,
-* any of the following characters: `,:@%()[]{}\`.
+    ^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])$
 
 ### Schema UUIDs
 
@@ -414,14 +399,12 @@ and the user register is stored in
 
 Register files are YAML files that contain the following two keys:
 
-1. `schemas`: a dictionary mapping schema UUIDs to fully qualified
-   schema locations (HTTP schema query URLs, local store
-   repositories or or local schema files).
-2. `services`: a dictionary mapping store/service UUIDs to fully
-   qualified HTTP service URLs.
+1. `schemas`: a dictionary mapping schema UUIDs and URLs to local file
+   paths.
+2. `services`: a dictionary mapping service UUIDs to service URLs.
 
-Whenever the same mapping appears in both, the system-wide register
-and the per-user register, the mapping in the user register takes
+Whenever the same mapping appears in both the system-wide register
+and the per-user register the mapping in the user register takes
 precedence and overrides the system-wide one.
 
 ### Example register
@@ -435,16 +418,13 @@ store).
 System register:
 
     schemas:
-        org.project.kanban.schema.1: http://kanban.project.org/
-        org.project.bugs.schema.1:   http://bugs.project.org/
-    stores:
-        org.project.kanban.store:    http://kanban.project.org/
-        org.project.bugs.store:      http://bugs.project.org/
+        org.project.kanban.schema.1: /usr/share/consonant/schemas/org.project.kanban.schema.1
+        org.project.issues.schema.1: /usr/share/consonant/schemas/org.project.issues.schema.1
 
 Registry of user `jeff`:
 
     stores:
-        org.project.bugs.store:      http://localhost:8080/
+        org.project.issues.store: http://localhost:8080/
 
 ## Schemas
 
@@ -459,41 +439,31 @@ Schema files contain the following top-level keys:
 * `uuid`: the UUID of the schema (see the *Schemas* section for more
   information).
 * `classes`: a mapping of class names to class definitions, each
-  including an object UUID format and a set of property definitions.
+  consisting of a set of property definitions.
 
 ### Class definitions
 
-Classes are defined via the `classes` mapping in schema files. Their
-definition includes:
+Classes are defined via a class name that is mapped to a set of object
+property definitions inside the `classes` mapping in schema files.
 
-* a class name,
-* an object UUID format, and
-* a set of object property definitions.
+The class name is the key the class is stored under in `classes`.
 
-The class name is given by the key they are stored under in `classes`.
-The object UUID format and property definitions are defined as follows:
-
-* an `uuid-format` key in the class definition,
-* a `properties` key in the class definition, which is itself a
-  dictionary that maps object property names to their definitions.
+The property definitions are defined via a `properties` key under the
+class name entry that is mapped to a dictionary, which in turn maps
+object property names to their definitions.
 
 The following example shows (partial) hypothetical schema for a kanban
 system based on Consonant, defining two classes for kanban lanes and
 cards, respectively:
 
     uuid: org.yourproject.kanban.schema1
-    lane:
-        uuid-format: ^[a-z]+$
-        properties:
-            ...
-    cards:
-        uuid-format: ^C[1-9][0-9]*$
-        properties:
-            ...
-
-### Object UUID formats
-
-TODO
+    classes:
+        lane:
+            properties:
+                ...
+        cards:
+            properties:
+                ...
 
 ### Object properties
 
@@ -502,18 +472,19 @@ key of class definitions. Each property definition includes
 
 * a name,
 * a data type,
-* data type specific hints (e.g. for validation rules), and
+* data type specific hints (e.g. validation rules), and
 * an `optional` hint.
-
-Properties may also be marked optional via the `optional` hint.
 
 ### Property names
 
 Property names are alphanumeric strings that may contain dashes as
 delimiters. Property names must start with a letter and may not end with
-a dash.
+a dash. They must have a minimum length of 2 characters. Property
+names can be validated using the following regular expression:
 
-Examples of valid property names are: `title`, `email-address`,
+    ^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$
+
+Examples of valid property names are: `id`, `title`, `email-address`,
 `property1`.
 
 ### Property data types
@@ -534,9 +505,7 @@ The following table lists all data types supported by Consonant schemas.
 +-------------+-------------------------------------------------------------+
 | float       | Data type for double-precision floating-point numbers.      |
 +-------------+-------------------------------------------------------------+
-| string      | Data type for one-line strings.                             |
-+-------------+-------------------------------------------------------------+
-| text        | Data type for multi-line strings.                           |
+| text        | Data type for arbitrary text. Whitespace is preserved.      |
 +-------------+-------------------------------------------------------------+
 | reference   | Data type for references to other objects, either in the    |
 |             | same or a different Consonant store.                        |
@@ -556,18 +525,17 @@ Boolean properties are specified in schema files as follows:
 
 #### Usage
 
-Assume we were to write a Consonant schema for a kanban system. A kanban
-card might have an optional boolean property `doable` to mark it as a
-small task that can be done in less then a day. In the schema, this would
-look as follows:
+Assume we were to write a Consonant schema for a kanban system. Kanban
+cards might have a boolean property `doable` to mark them as small
+tasks that can be completed in less then a day. In the schema, this
+would look as follows:
 
     uuid: org.yourproject.kanban.schema.1
     classes:
         card:
-            uuid-format: ^C[1-9][0-9]*$
-            doable:
-                type: boolean
-                optional: true
+            properties:
+                doable:
+                    type: boolean
 
 A card `/card/C105` might have this property set, in which case its
 `properties.yaml` file in the corresponding Consonant store would like
@@ -590,23 +558,23 @@ Integer properties are specified in schema files as follows:
 
 #### Usage
 
-Assume we were to write a Consonant schema for a kanban system. A kanban
-card might have a mandatory `estimated-days` property to estimate the
-amount of days needed to finish the task. The resulting schema would
-look as follows:
+Assume we were to write a Consonant schema for a kanban system. Kanban
+cards might have an optional `estimated-days` property to estimate the
+amount of days needed to finish the corresponding tasks. The resulting
+schema would look as follows:
 
     uuid: org.myproject.kanban.schema.1
     classes:
         card:
-            uuid-format: ^C[1-9][0-9]*$
-            doable:
-                type: boolean
-                optional: true
-            estimated-days:
-                type: int
+            properties:
+                doable:
+                    type: boolean
+                estimated-days:
+                    type: int
+                    optional: true
 
-Every card (e.g. `/card/C105`) would have to have this property set,
-resulting in `properties.yaml` files like the following:
+Any card (e.g. `/card/C105`) might have this property set, resulting in
+`properties.yaml` files like the following:
 
     estimated-days: 3
     doable: false
@@ -640,7 +608,6 @@ look as follows:
     uuid: uk.me.yourname.banking.schema.1
     classes:
         account:
-            uuid-format: ^[a-zA-Z-]+$
             properties:
                 current-amount:
                     type: float
@@ -655,62 +622,54 @@ following:
 
 All floating point properties support double precision values.
 
-### Properties of type `string`
+### Properties of type `text`
 
 #### Definition
 
-String properties are specified in schema files as follows:
+Text properties are defined in schemas as follows:
 
     <name>:
-        type: string
+        type: text
 
 They may optionally include a regular expression as a validation
 requirement for implementations:
 
     <name>:
-        type: string
-        regex: ^[a-zA-Z0-9]$
+        type: text
+        regex: <regular expression>
 
 #### Usage
 
-Assume we were to write a Consonant schema for a kanban system where
-each card has a title associated with it. The resulting schema would
-look as follows:
+Assume we were to define a Consonant schema for a kanban system that
+includes lanes with a title, an optional description and a CSS color.
+The schema for this might look as follows:
 
     uuid: org.yourproject.kanban.schema.1
     classes:
-        card:
-            uuid-format: ^C[1-9][0-9]*$
+        lane:
             properties:
                 title:
-                    type: string
+                    type: text
+                description:
+                    type: text
+                color:
+                    type: text
+                    regex: ^#([0-9abcdefABCDEF]{2}){3}$
 
-Every card (e.g. `/cards/C105`) would have to have this property
-set, resulting in `properties.yaml` files like the following:
+Lanes in the store would now have `properties.yaml` files like the
+following:
 
-    title: Finish the schemas section of the Consonant spec
+    title: Doing
+    description: |
+      Tasks that are currently being worked on
+      by a member of the project.
+    color: #a7d239
 
 #### Values
 
-Allowed values are any strings that contain no newline characters.
-If a `regex` validation rule is defined, the strings must in addition
-satisfy the given regular expression.
-
-### Properties of type `text`
-
-Text properties are the same as strings except that they do not
-support `regex` validation rules and may, unlike strings, contain
-newlines. Any newline characters provided as input to a string
-property are preserved. For example, the value
-
-    This is a two-line description for
-    a kanban card.
-
-would be preserved in a `properties.yaml` file as:
-
-    description: |
-        This is a two-line description for
-        a kanban card.
+Text properties can store arbitrary text including whitespace that is
+preserved by the store. If a `regex` validation rule is defined, the
+text must in addition satisfy the given regular expression.
 
 ### Properties of type `reference`
 
@@ -720,66 +679,109 @@ Reference properties are used to describe references from one object
 to another. References may be internal (within the same store) or
 external (to objects in a different store). References may also include
 a particular target tree or commit (again, in the same or a different
-store).
+store). Another feature of object references in Consonant is that they
+can be unidirectional or bidirectional.
 
-Reference properties are defined as follows:
-
-    <name>:
-        type: reference
-        class: <target class name>
-
-They may optionally include a store/service UUID to indicate referencing
-of objects in a different store than the one the schema is being used
-in:
+Internal reference properties are defined as follows:
 
     <name>:
         type: reference
         class: <target class name>
-        service-uuid: <service UUID>
+
+Reference properties for linking to objects in another store are
+defined by adding a schema UUID to the property definition:
+
+    <name>:
+        type: reference
+        class: <target class name>
+        schema: <schema UUID>
+
+Note that the above only specifies the schema, allowing Consonant
+implementations to locate the class definition of referenced objects
+from the schema the UUID is resolved to. The schema does not specify
+in which store(s) the referenced external objects are held. This
+is purely encoded in the actual property values and may vary from
+store to store.
+
+The above definitions define one-way/unidirectional object references.
+The `bidirectional` hint may be used to define bidirectional
+references. The value of `bidirectional` is the name of a property
+of the referenced objects that is expected to hold a reference in
+the other direction. Note that property pointed at by `bidirectional`
+may be a list, allowing not just one-to-one bidirectional references
+but also one-to-many or many-to-many relationships to be defined:
+
+    <name>:
+        type: reference
+        class: <target class name>
+        bidirectional: <property name of the target class>
+
+Note: Bidirectional properties are only supported for *internal*
+references, not for references to objects in another store.
 
 #### Usage
 
-Assume we had the following service registered with Consonant via the
-Consonant register:
-
-    services:
-        org.yourproject.issues: http://issues.yourproject.org/
-
-Assume further that we were to define a schema for a kanban system
-based on Consonant where cards refer to the lanes they are in and
-optionally refer to an issue in our issue tracker. The kanban schema
-for this could include the following:
+Assume that we were to define a schema for a kanban system with lanes
+and cards, where lanes and cards have a one-to-many relationship and
+cards may optionally refer to external issue objects in an issue
+tracker. The kanban schema for this could include the following:
 
     uuid: org.yourproject.kanban.schema.1
     classes:
         lane:
-            uuid-format: ^[a-z]+$
             properties:
-                ...
+                title: text
+                cards:
+                    type: list
+                    elements:
+                        type: reference
+                        class: card
+                        bidirectional: lane
         card:
-            uuid-format: ^C[1-9][0-9]*$
             properties:
+                title: text
                 lane:
                     type: reference
                     class: lane
+                    bidirectional: cards
                 issue:
                     type: reference
                     class: issue
-                    service-uuid: org.yourproject.issues
+                    schema: org.yourproject.issues.schema.1
                     optional: true
 
-Every card in the kanban store would have to have a reference to one of
-the lanes and, optionally, a reference to an issue in the issue tracker.
-An example could be:
+With this, every lane in the kanban store would have to have a list of
+the cards in the lane in the `cards` property. An example could be the
+`properties.yaml` file of a lane with the UUID `doing`:
 
-    lane: backlog
-    issue: bug209
+    title: Doing
+    cards:
+        - C930
+        - C984
+        - C312
 
-where `bug209` is the UUID of an issue in the issue tracker.
+Cards on the other hand would have to have a reference back to the
+lane they are in via the `lane` property` and could additional store
+a reference to an external issue:
 
-TODO: Rethink/rework the above and continue.
+    title: Fix bug #5942
+    lane: doing
+    issue:
+        service: issues
+        uuid: bug209
+
+where `issues` is a service alias for the issue tracker defined in
+`consonant.yaml` and `bug209` is the UUID of an issue in this issue
+tracker.
 
 #### Values
+
+The format and allowed content of references depends on whether they
+are internal or external. Internal references are required to be set
+to the UUID of the referenced object. External references are a simple
+dictionary with two keys: `service` (a service alias resolved via
+the `consonant.yaml` file of the store) and `uuid` (the UUID of the
+referenced object.
 
 ### Properties of type `list`
 
@@ -814,7 +816,6 @@ to the cards in them. The resulting schema might look like this:
     uuid: org.yourproject.kanban.schema.1
     classes:
         lane:
-            uuid-format: ^[a-z]+$
             properties:
                 title: string
                 cards:
@@ -824,7 +825,6 @@ to the cards in them. The resulting schema might look like this:
                         class: card
                 optional: true
         card:
-            uuid-format: ^C[1-9][0-9]*$
             ...
 
 A "backlog" lane with three cards could then have the following content
@@ -847,86 +847,15 @@ specified.
 
 #### Example kanban schema
 
+TODO
+
 #### Example issues schema
+
+TODO
 
 # Consonant services / data interface
 
 <!--
-## Schemas
-
-Schemas are files that describe the object classes available for use in
-an object store. Definitions of classes include a class name and a list
-of properties. Each property definition includes a name, basic data type
-and data type specific information (e.g. for validating strings).
-Properties may also be marked optional via the `optional=<true|false>`
-field.
-
-The following basic data types are supported:
-
-+------------+--------------------------------------+-----------------------------------------------------+
-| Name       | Description                          | Extra fields                                        |
-+============+======================================+=====================================================+
-| string     | A single line of text.               |                                                     |
-+------------+--------------------------------------+-----------------------------------------------------+
-| regex      | A regular expression for validating  |                                                     |
-|            | the value of a string property       |                                                     |
-+------------+--------------------------------------+-----------------------------------------------------+
-| text       | Multiple lines of text.              |                                                     |
-+------------+--------------------------------------+-----------------------------------------------------+
-| list       | List of values of another data type. | * type - basic data type of list elements           |
-+------------+--------------------------------------+-----------------------------------------------------+
-| ref        | Reference to another object.         | * *class* - name of the class of referenced objects |
-|            |                                      | * *store* - alias, UUID, path or URL to an HTTP     |
-|            |                                      |   object store service that the holds the           |
-|            |                                      |   referenced objects                                |
-+------------+--------------------------------------+-----------------------------------------------------+
-
-Table: Data types supported by the generic Git object store.
-
-An example schema could look as follows
-
-    org.myproject.schemas.kanban.yaml:
-    uuid: org.myproject.schemas.kanban
-        lane:
-            title:
-                kind: string
-                regex: ^.*$
-            cards:
-                kind: list
-                type: ref
-                class: card
-            colour:
-                kind: string
-                regex: ^#([0-9abcdefABCDEF]{6})$
-        card:
-            issue:
-                kind: ref
-                class: issue
-                store: issues
-                optional: true
-
-An example schema file called `org.myproject.schemas.kanban` could look
-as follows
-
-    uuid: org.myproject.schemas.kanban
-        lane:
-            title:
-                kind: string
-                regex: ^.*$
-            cards:
-                kind: list
-                type: ref
-                class: card
-            colour:
-                kind: string
-                regex: ^#([0-9abcdefABCDEF]{6})$
-        card:
-            issue:
-                kind: ref
-                class: issue
-                store: issues
-                optional: true
-
 ## Object References
 
 TODO
