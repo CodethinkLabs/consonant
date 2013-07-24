@@ -3,13 +3,21 @@
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
 % July 23th, 2013
 
-# Known Issues
+# Issues with the spec
 
 * What if the `consonant.yaml` file changes over time. What if the
   schema being used changes incompatibly or the `consonant.yaml` file
   out of a sudden points to a different version of a schema?
   What if the UUID changes? What if the schema is different between
   different branches of a store?
+* Do we know that Git copes well with trees that have thousands of
+  entries? Hack up a test repository and run something with pygit2
+  against it.
+* Use proper UUIDs in all examples.
+* Drop UUID-only string reference notation from reference property
+  values.
+* We need to define that bidirectional references may only define
+  pairs, not triangles etc.
 
 # Introduction
 
@@ -32,7 +40,7 @@ has been something we call *traceability*—the ability to tell how data
 changed over time, who changed what and why, and how the data in
 question looked like at a specific point in time.
 
-Two examples are:
+Examples are:
 
 * The requirements and architecture of projects tend to change over
   time. In this context it is often beneficial to understand who
@@ -43,20 +51,37 @@ Two examples are:
   were moved in a day or a week or how the cards linked to a milestone
   have changed from week to week. Among other things this helps
   understanding how realistic milestones are and whether adjustments
-  have to be maddiffs.
+  have to be made.
+
+## Key concepts
+
+In order to support the development of applications that need traceable
+data stores, we have identified the need for the following:
+
+* A generic object store in Git:
+    - object-relational,
+    - database-like,
+    - versioned,
+    - branchable,
+    - versatile.
+* Representation of objects as YAML files:
+    - unique IDs,
+    - properties,
+    - readable and editable by humans and machines alike,
+    - plain text, useful for diffs.
 * References between objects in different data stores:
     - verifiable,
     - versioned.
 * Service-oriented design to allow rapid development of interconnected
   web applications on top of Git object stores.
 
-Consonant aims to satisfy this demand by specifying
+Consonant aims to satisfy these demands by specifying
 
 * a Git/YAML based data model with schemas for type checking and
   validation,
 * a RESTful web API for querying and modifying object stores based on
   this data model,
-* a mechanism to for referencing objects across different stores.
+* a mechanism for referencing objects across different stores.
 
 ## Why not use an existing database?
 
@@ -73,8 +98,8 @@ yourself.
 This specification aims to use consistent terms for the different
 aspects of the Consonant design.
 
-* A `Consonant store` is a Git repository that follows the Consonant
-  data model.
+* A `Consonant store` is a Git repository whose contents follows the
+  Consonant data model.
 * A `Consonant service` is a service that provides access to a
   Consonant store via the Consonant web API.
 * A `Consonant register` is a YAML file that maps Consonant schema and
@@ -101,14 +126,15 @@ sections are:
 
 ## Store repository
 
-Every Consonant store is a Git repository. As such it is represented as
-a directory that holds the Git key/value store and that can (usually)
-be accessed remotely via different protocols. The Git key/value store
-consists of data that is addressed by a SHA1 of its content. The
-following data elements exist in Git:
+Every Consonant store is a Git repository. As such it is typically
+represented as a directory that holds the Git key/value store and
+that can (usually) be accessed remotely via different protocols.
+The Git key/value store consists of data that is addressed by a
+SHA1 of its content. The following data elements exist in Git and
+are relevant to Consonant:
 
 * `blob`: a file with specific content,
-* `tree`: a directory of specific trees and blobs,
+* `tree`: a directory of specific subtrees and blobs,
 * `commit`: a specific tree, annotated with a list of parent commits
   and other meta data, such as author, committer, commit message and
   so on.
@@ -129,9 +155,10 @@ stores.
 
 ## Trees and their structure
 
-Each Git tree, whether associated with a commit or not, represents a
-particular version or revision of the store's data. The following
-elements are present in a tree:
+From here on, *tree* refers to the fully resolved tree of trees
+normally associated with a Git commit. Each tree, whether associated
+with a commit or not, represents a particular version or revision of
+the store's data. The following elements are present in a tree:
 
 1. A top-level `consonant.yaml` file that contains
     - the store UUID,
@@ -142,8 +169,9 @@ elements are present in a tree:
 2. One top-level directory for each object class for which objects
    have been created (e.g. `/card/`, `/lane/`, `/user/`).
 3. One directory in the corresponding object class directory for
-   each object that has been created (e.g. `/card/C1234/`,
-   `/lane/backlog/`).
+   each object that has been created (e.g.
+   `/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/`,
+   `/lane/c675a494-9616-41aa-9833-5629029f6c41/`).
 4. One `properties.yaml` file in each object directory, storing the
    properties of the object.
 5. An optional `attachments/` directory inside each object directory,
@@ -157,22 +185,22 @@ This is how an example tree for a simple kanban system could look like:
 
     consonant.yaml
     lane/
-        backlog/
-            properties.yaml
-        doing/
-            properties.yaml
-        done/
-            properties.yaml
+        9f03afc6-20c3-4757-a671-2bcdccd47f46/
+            properties.yaml                   # title: Backlog
+        6453247f-4aed-4233-bf5a-51e056d9f080/
+            properties.yaml                   # title: Doing
+        8c5bba15-8f70-486a-89fc-fa5a964ee624/
+            properties.yaml                   # title: Done
     card/
-        C1234/
-            properties.yaml
+        0cca0d5f-25a2-4b2f-a8ad-7f647aedb2df/
+            properties.yaml                   # number: 129
             attachments/
                 foo.txt
                 .foo.txt.yaml
                 bar.png
                 .bar.png.yaml
-        .C5123/
-            properties.yaml
+        .f59d7c0b-ddac-429d-820b-9867794a9a93/
+            properties.yaml                   # number: 483
 
 ## The `consonant.yaml` file
 
@@ -262,7 +290,7 @@ so-called properties. They come in three variants:
 
 ### Hidden objects
 
-A special feature of Consonant stores is that objects can be hidden by
+A feature of Consonant stores is that objects can be hidden by
 prepending a dot to their directory name (e.g. `/card/.C503/`). This
 is similar to hiding files on file systems.
 
@@ -296,16 +324,16 @@ a lane in a kanban system, including the properties `name` (text),
 `description`, `color` (text), `cards` (list of internal references
 to objects of the class `card`).
 
-    name: Doing
+    title: Doing
     description: |
         Tasks that are currently being worked on. Cards are
         being moved here from the "Backlog" and are moved to
         "Done" after being processed.
     color: #ffa500
     cards:
-        - C513
-        - C506
-        - C654
+        - uuid: C513
+        - uuid: C506
+        - uuid: C654
 
 ### The `attachments` directory
 
@@ -321,7 +349,11 @@ the `attachments/` directory as follows:
 1. `attachments/NAME`: holds the attachment data,
 2. `attachments/.NAME.yaml`: holds the attachment meta data,
 
-where `NAME` is the name of the attachment.
+where `NAME` is the name of the attachment. Attachment names may
+not start with a dot and may not contain slashes. Unlike object
+properties that are validated via Consonant schemas, there is no
+defined validation scheme for attachment meta data. This is entirely
+left up to applications built with Consonant.
 
 #### Example `attachments` directory
 
@@ -345,11 +377,10 @@ The YAML meta data in `.patch-v1.patch.yaml` could look like this:
 ## UUIDs
 
 Universally unique identifiers (UUIDs) are being used to refer to other
-objects, schemas or stores/services. The term "universal" is a little
-confusing here: while creators of schemas and stores are encouraged to
-use globally unique identifiers (see below), there is no way to
-guarantee this. Identifiers of objects only have to be unique within
-a store.
+objects, schemas or stores/services. Universality of identifiers is not
+enforced: while creators of schemas and stores are encouraged to use
+globally unique identifiers (see below), there is no way to guarantee
+this. Identifiers of objects only have to be unique within a store.
 
 ### Object UUIDs
 
@@ -360,6 +391,13 @@ with a dash:
 
     ^([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])$
 
+The use of standard UUIDs (see
+<http://en.wikipedia.org/wiki/Universally_unique_identifier>) is
+strongly recommended.
+
+It is mandatory that applications place no semantic meaning on object
+UUIDs.
+
 ### Schema UUIDs
 
 Identifiers of schemas are required to be of the form
@@ -369,7 +407,9 @@ Identifiers of schemas are required to be of the form
 meaning that they follow a reverse domain notation similar to that used
 for Java packages/classes and D-Bus service names. A special requirement
 is the mandatory final segment of the UUID, which specifies the schema
-version.
+version:
+
+    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)*\.[0-9]+$
 
 ### Store/service UUIDs
 
@@ -377,8 +417,10 @@ Identifiers of stores/services are required to be of the form
 
     some.domain.storename
 
-meaning that they follow a reverse domain notation similar to that used
-for Java packages/classes and D-Bus service names.
+meaning that they follow the same reverse domain notation as schema
+UUIDs except for not requiring a version number segment at the end:
+
+    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)$
 
 ## The Consonant register
 
@@ -395,7 +437,7 @@ that is, the system register is stored in
 
 and the user register is stored in
 
-    $XDG_CONFIG_HOME/consonant/register.yaml.
+    $XDG_CONFIG_HOME/consonant/register.yaml
 
 Register files are YAML files that contain the following two keys:
 
@@ -403,7 +445,7 @@ Register files are YAML files that contain the following two keys:
    paths.
 2. `services`: a dictionary mapping service UUIDs to service URLs.
 
-Whenever the same mapping appears in both the system-wide register
+Whenever the same UUID appears in both the system-wide register
 and the per-user register the mapping in the user register takes
 precedence and overrides the system-wide one.
 
@@ -444,13 +486,17 @@ Schema files contain the following top-level keys:
 ### Class definitions
 
 Classes are defined via a class name that is mapped to a set of object
-property definitions inside the `classes` mapping in schema files.
+property definitions inside the `classes` key in schema files.
 
-The class name is the key the class is stored under in `classes`.
+The class name is the key the class is stored under in `classes`. Class
+names are limited to alphanumeric characters mixed with dashes. They
+must begin with a letter, may not end with a dash and must have a
+minimum length of 2 characters:
 
-The property definitions are defined via a `properties` key under the
-class name entry that is mapped to a dictionary, which in turn maps
-object property names to their definitions.
+    ^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$
+
+The `properties` key under the class definition maps object property
+names to their definitions.
 
 The following example shows (partial) hypothetical schema for a kanban
 system based on Consonant, defining two classes for kanban lanes and
@@ -472,8 +518,8 @@ key of class definitions. Each property definition includes
 
 * a name,
 * a data type,
-* data type specific hints (e.g. validation rules), and
-* an `optional` hint.
+* an `optional` flag, and
+* data type specific hints (e.g. validation rules).
 
 ### Property names
 
@@ -661,15 +707,72 @@ following:
 
     title: Doing
     description: |
-      Tasks that are currently being worked on
-      by a member of the project.
+        Tasks that are currently being worked on
+        by a member of the project.
     color: #a7d239
 
 #### Values
 
 Text properties can store arbitrary text including whitespace that is
 preserved by the store. If a `regex` validation rule is defined, the
-text must in addition satisfy the given regular expression.
+value of the text property must in addition satisfy the given regular
+expression.
+
+### Properties of type `list`
+
+#### Definition
+
+List properties are defined in schemas as follows:
+
+    <name>:
+        type: list
+        elements:
+            <type definition for elements>
+
+One example would be a list of lists of strings:
+
+    <name>:
+        type: list
+        elements:
+            type: list
+            elements:
+                type: string
+
+Lists are required to always contain at least one element. The
+`optional` flag can be used to define list properties that may be empty
+(by not being set at at all).
+
+#### Usage
+
+Assume we were to define a Consonant schema for a kanban system with
+cards that optionally have arbitrary strings attached as tags. The
+resulting schema might then look like this:
+
+    uuid: org.yourproject.kanban.schema.1
+    classes:
+        card:
+            properties:
+                title: string
+                tags:
+                    type: list
+                    elements:
+                        type: string
+                    optional: true
+
+A card could now have the following `properties.yaml` file including
+a list of tags:
+
+    title: Fix bug #5302
+    tags:
+        - bug
+        - priority1
+
+#### Values
+
+If present in `properties.yaml` files, lists must be non-empty. Empty
+list properties are realised through the `optional` flag. The allowed
+values of list elements depend entirely on the element data type
+specified.
 
 ### Properties of type `reference`
 
@@ -707,17 +810,18 @@ The above definitions define one-way/unidirectional object references.
 The `bidirectional` hint may be used to define bidirectional
 references. The value of `bidirectional` is the name of a property
 of the referenced objects that is expected to hold a reference in
-the other direction. Note that property pointed at by `bidirectional`
-may be a list, allowing not just one-to-one bidirectional references
-but also one-to-many or many-to-many relationships to be defined:
+the other direction. Note that the property named by the `bidirectional`
+hint may be a list, allowing not just one-to-one bidirectional
+references but also one-to-many or many-to-many relationships to be
+defined:
 
     <name>:
         type: reference
         class: <target class name>
         bidirectional: <property name of the target class>
 
-Note: Bidirectional properties are only supported for *internal*
-references, not for references to objects in another store.
+Note: Bidirectional reference properties are only supported for
+*internal* references, not for references to objects in another store.
 
 #### Usage
 
@@ -777,86 +881,29 @@ tracker.
 #### Values
 
 The format and allowed content of references depends on whether they
-are internal or external. Internal references are specified in one of
-the following two ways:
+are internal or external. Internal references are specified as a
+a dictionary:
 
-* `<object UUID>`: the target object's UUID or
-* a dictionary with two keys:
-    - `ref`: a Git ref, tree, commit or tag of the Consonant store and
-    - `uuid`: the target object's UUID.
+- `uuid`: the target object's UUID, and
+- `ref`: an optional Git ref, tree, commit or tag of the Consonant
+  store.
 
 Similarly, external references are specified via a dictionary with
 the following keys:
 
+* `uuid`: the UUID of the referenced object,
 * `service`: a service alias resolved via the `consonant.yaml` file of
-  the store,
-* `uuid`: the UUID of the referenced object, and
-* `ref`: a Git ref, tree, commit or tag of the target Consonant store
-  (optional).
+  the store, and
+* `ref`: an optional Git ref, tree, commit or tag of the target
+  Consonant store (optional).
 
-### Properties of type `list`
+# Consonant services / data interface
 
-#### Definition
+# Appendix
 
-List properties are defined in schemas as follows:
+## Example schemas
 
-    <name>:
-        type: list
-        elements:
-            <type definition for elements>
-
-One example would be a list of lists of strings:
-
-    <name>:
-        type: list
-        elements:
-            type: list
-            elements:
-                type: string
-
-Lists are required to always contain at least one element. The
-`optional` flag can be used to define list properties that may be empty
-(by not being set at at all).
-
-#### Usage
-
-Assume we were to define a Consonant schema for a kanban system with
-lanes and cards. Assume further that lanes maintain a list of references
-to the cards in them. The resulting schema might look like this:
-
-    uuid: org.yourproject.kanban.schema.1
-    classes:
-        lane:
-            properties:
-                title: string
-                cards:
-                    type: list
-                    elements:
-                        type: reference
-                        class: card
-                optional: true
-        card:
-            ...
-
-A "backlog" lane with three cards could then have the following content
-in `properties.yaml`:
-
-    title: Backlog
-    cards:
-        - C198
-        - C503
-        - C93
-
-#### Values
-
-If present in `properties.yaml` files, lists must be non-empty. Empty
-list properties are realised through the `optional` flag. The allowed
-values of list elements depend entirely on the element data type
-specified.
-
-### Example schemas
-
-#### Example kanban schema
+### Example kanban schema
 
 The following example schema defines all object classes and relations
 necessary for a simple Kanban system. It includes:
@@ -867,7 +914,8 @@ necessary for a simple Kanban system. It includes:
 * milestones (deadlines cards can be associated with),
 * cards (small tasks assigned to one or more users, organised
   in lanes),
-* comments (for cards) and tags (for cards and milestones).
+* comments (for cards),
+* and tags (for cards and milestones).
 
 This is pretty elaborate already. All it takes to define the above
 classes and link them together is this:
@@ -962,6 +1010,7 @@ classes and link them together is this:
             elements:
               type: reference
               class: comment
+              bidirectional: card
           tags:
             type: list
             elements:
@@ -974,6 +1023,10 @@ classes and link them together is this:
             class: user
           text:
             type: text
+          card:
+            type: reference
+            class: card
+            bidirectional: comments
       tag:
         properties:
           title:
@@ -981,68 +1034,6 @@ classes and link them together is this:
           description:
             type: text
 
-#### Example issues schema
+### Example issues schema
 
 TODO
-
-# Consonant services / data interface
-
-<!--
-## Object References
-
-TODO
-
-Three types:
-
-1. Internal: `<UUID>`
-2. Simple external: `<prefix>:<UUID>` (e.g. `kanban:S1234`)
-3. Advanced external: `<prefix>@<ref>:<UUID>` (e.g. `kanban@master:S1234`)
-
-Web API convention for resolving links:
-
-* `GET /gitstore/api/1.0/resolve/<UUID>/<ref>`
-* e.g. `GET /gitstore/api/1.0/resolve/S1234/master`
-* HTTP response codes:
-    - 404 - not found
-    - 302 - found, redirecting to service-specific link (e.g.
-      <http://kanban.foo.org/card/S1234>)
-    - 351 (?) - multiple choices, i.e., ambiguous ref
-
-## Example Object Store Tree
-
-TODO
-
-# RESTful Web API for Object Stores
-
-TODO
-
-# Linking Object Stores Together
-
-TODO
-
-Config file to register local or remote stores (`~/.gitstore.conf`):
-
-    <UUID>: <local path or http:// URL>
-    <UUID>: <local path or http:// URL>
-
-# Python Base Library
-
-TODO
-
-Have a Python base library that
-
-* implements the data model based on pygit2 in a generic way
-* can spin up a RESTful web service to query and modify a given data
-  store
-* allows hooks for UUID generation, authentication, authorisation etc.
-  to develop an LDAP authentication layer and specific web applications
-  for different services (MUSTARD, Kanban) on top:
-
-        /gitstore/api/1.0/resolve/...
-        /gitstore/api/1.0/create/...
-        /gitstore/api/1.0/delete/...
-        /gitstore/api/1.0/hide/...
-        /gitstore/api/1.0/modify/...
-* uses <http://sendapatch.se/projects/pylibmc/> for caching parsed YAML
-  blobs (which is the thing that is likely to slow things down most)
--->
