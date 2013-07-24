@@ -13,9 +13,6 @@
 * Do we know that Git copes well with trees that have thousands of
   entries? Hack up a test repository and run something with pygit2
   against it.
-* Use proper UUIDs in all examples.
-* Drop UUID-only string reference notation from reference property
-  values.
 * We need to define that bidirectional references may only define
   pairs, not triangles etc.
 
@@ -98,13 +95,13 @@ yourself.
 This specification aims to use consistent terms for the different
 aspects of the Consonant design.
 
-* A `Consonant store` is a Git repository whose contents follows the
+* A *Consonant store* is a Git repository whose contents follows the
   Consonant data model.
-* A `Consonant service` is a service that provides access to a
+* A *Consonant service* is a service that provides access to a
   Consonant store via the Consonant web API.
-* A `Consonant register` is a YAML file that maps Consonant schema and
+* A *Consonant register* is a YAML file that maps Consonant schema and
   service UUIDs to Consonant services.
-* A `Consonant schema` is a YAML file that defines classes for objects
+* A *Consonant schema* is a YAML file that defines classes for objects
   with typed properties.
 
 # Consonant stores / data model
@@ -133,9 +130,9 @@ The Git key/value store consists of data that is addressed by a
 SHA1 of its content. The following data elements exist in Git and
 are relevant to Consonant:
 
-* `blob`: a file with specific content,
-* `tree`: a directory of specific subtrees and blobs,
-* `commit`: a specific tree, annotated with a list of parent commits
+* *blob*: a file with specific content,
+* *tree*: a directory of specific subtrees and blobs,
+* *commit*: a specific tree, annotated with a list of parent commits
   and other meta data, such as author, committer, commit message and
   so on.
 
@@ -204,13 +201,14 @@ This is how an example tree for a simple kanban system could look like:
 
 ## The `consonant.yaml` file
 
-This file defines the unique ID (UUID) and structure of the store as
-well as external stores that objects are or may be linking to.
+This file defines the universally unique ID (UUID) and structure of
+the store as well as external stores that objects are or may be
+linking to.
 
 It is a YAML file with three top-level keys:
 
-1. `uuid`: Defines the unique ID (UUID) of the store. The format of
-   store UUIDs is specified in the *UUIDs* section.
+1. `uuid`: Defines the unique ID of the store. The format of store
+   UUIDs is specified in the *UUIDs* section.
 2. `schema`: A schema reference stating the schema being used in the
    store. This schema defines the object classes available in the store
    and specifies names and types of object properties. For the format
@@ -271,14 +269,14 @@ milestone objects in a kanban system or `/project/`, `/component/` and
 
 Each object created in a Consonant store is represented by an object
 directory inside the corresponding class directory. Object directories
-are named after object UUIDs.
+are named after object UUIDs. The format of object UUIDs is described
+in the *Object UUIDs* section.
 
-Examples are `/card/C423/` (for a kanban card with the number 423),
-`/lane/backlog/` (for a backlog lane in a kanban system) and
-`/milestone/15/` (for the 15th milestone defined in a project).
+Examples of object directories in a Consonant tree are
 
-The format of object UUIDs may vary and is specified in the schema used
-by the store (see the *Schemas* section for more details).
+* `/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/`,
+* `/lane/c675a494-9616-41aa-9833-5629029f6c41/`, or
+* `/milestone/a64c6577-e810-4d7b-922c-2a94c3dd644b/`.
 
 Objects would be useless if all they consisted of was a class and a
 name. Like in many programming languages, Consonant objects have
@@ -291,8 +289,9 @@ so-called properties. They come in three variants:
 ### Hidden objects
 
 A feature of Consonant stores is that objects can be hidden by
-prepending a dot to their directory name (e.g. `/card/.C503/`). This
-is similar to hiding files on file systems.
+prepending a dot to their directory name (e.g.
+`/card/.3652ccf3-0aa3-4974-88a3-37cd8b74a270/`). This is similar to
+marking files as hidden in a file system.
 
 Hidden objects are not parsed and loaded into memory unless explicitly
 requested. Depending on the amount of data, this can result in
@@ -310,7 +309,8 @@ cards for project managers and statistics.
 
 The `properties.yaml` files contain the mandatory and optional
 properties for individual objects. There is one file for each object,
-located in the object directory (e.g. `/card/C593/properties.yaml`).
+located in the object directory (e.g.
+`/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/properties.yaml`).
 
 Like the file extension suggests, `properties.yaml` files are YAML
 files. They each hold a flat dictionary that maps property names to
@@ -331,16 +331,17 @@ to objects of the class `card`).
         "Done" after being processed.
     color: #ffa500
     cards:
-        - uuid: C513
-        - uuid: C506
-        - uuid: C654
+        - uuid: 3652ccf3-0aa3-4974-88a3-37cd8b74a270
+        - uuid: 1b1f1146-72c5-4890-9501-068ddb0560be
+        - uuid: 2066c664-a8fe-494f-bddf-756be267fb3c
 
 ### The `attachments` directory
 
 In addition to regular properties that are defined in schemas, each
 object may store arbitrary properties called *attachments*. These are
 stored as pairs of files in an `attachments/` subdirectory inside the
-object directory (e.g. `/card/C854/attachments/`).
+object directory (e.g.
+`/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/attachments/`).
 
 Attachments consist of a name (e.g. `comments` or `mockup.png`),
 the actual data and arbitrary YAML meta data. All this is stored in
@@ -360,10 +361,11 @@ left up to applications built with Consonant.
 The following example shows a hypothetical listing of an attachments
 directory for issue `6031` in a bug tracker:
 
-    /issue/6031/attachments/patch-v1.patch
-    /issue/6031/attachments/.patch-v1.patch.yaml
-    /issue/6031/attachments/patch-v2.patch
-    /issue/6031/attachments/.patch-v2.patch.yaml
+    /issue/5d4c394d-cb88-4d98-954f-85f17fe51948/attachments/
+        patch-v1.patch
+        .patch-v1.patch.yaml
+        patch-v2.patch
+        .patch-v2.patch.yaml
 
 The YAML meta data in `.patch-v1.patch.yaml` could look like this:
 
@@ -460,8 +462,10 @@ store).
 System register:
 
     schemas:
-        org.project.kanban.schema.1: /usr/share/consonant/schemas/org.project.kanban.schema.1
-        org.project.issues.schema.1: /usr/share/consonant/schemas/org.project.issues.schema.1
+        org.project.kanban.schema.1: >
+            /usr/share/consonant/schemas/org.project.kanban.schema.1
+        org.project.issues.schema.1: >
+            /usr/share/consonant/schemas/org.project.issues.schema.1
 
 Registry of user `jeff`:
 
@@ -583,9 +587,9 @@ would look as follows:
                 doable:
                     type: boolean
 
-A card `/card/C105` might have this property set, in which case its
-`properties.yaml` file in the corresponding Consonant store would like
-like this:
+A card `/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270` might have this
+property set, in which case its `properties.yaml` file in the
+corresponding Consonant store would look like this:
 
     doable: true
 
@@ -619,8 +623,9 @@ schema would look as follows:
                     type: int
                     optional: true
 
-Any card (e.g. `/card/C105`) might have this property set, resulting in
-`properties.yaml` files like the following:
+Any card (e.g. `/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270`) might have
+this property set, resulting in `properties.yaml` files like the
+following:
 
     estimated-days: 3
     doable: false
@@ -655,13 +660,16 @@ look as follows:
     classes:
         account:
             properties:
+                name:
+                    type: string
                 current-amount:
                     type: float
 
-Every account (e.g. `/account/savings`) would have to have this
-property set, resulting in `properties.yaml` files like the
-following:
+Every account (e.g. `/account/29f585ca-b246-4eea-9d79-a34904f8f19a`)
+would have to have this property set, resulting in `properties.yaml`
+files like the following:
 
+    name: Personal Savings
     current-amount: 159.27
 
 #### Values
@@ -860,9 +868,9 @@ the cards in the lane in the `cards` property. An example could be the
 
     title: Doing
     cards:
-        - C930
-        - C984
-        - C312
+        - uuid: 2a4f3b0a-b828-40f7-aa4b-ce57480ede52
+        - uuid: 998229a6-0562-43c8-8122-7c813603ed9f
+        - uuid: 6cc4efed-3a0e-47c5-b387-17e2b3c48d6d
 
 Cards on the other hand would have to have a reference back to the
 lane they are in via the `lane` property` and could additional store
@@ -872,11 +880,11 @@ a reference to an external issue:
     lane: doing
     issue:
         service: issues
-        uuid: bug209
+        uuid: ab63d142-0af1-45a8-b813-8dd7e39ffd6e
 
-where `issues` is a service alias for the issue tracker defined in
-`consonant.yaml` and `bug209` is the UUID of an issue in this issue
-tracker.
+where `issues` is a alias for the issue tracker service defined in
+`consonant.yaml` and `ab63d142-0af1-45a8-b813-8dd7e39ffd6e` is the
+UUID of an issue in this issue tracker.
 
 #### Values
 
@@ -884,7 +892,7 @@ The format and allowed content of references depends on whether they
 are internal or external. Internal references are specified as a
 a dictionary:
 
-- `uuid`: the target object's UUID, and
+- `uuid`: the target object's UUID,
 - `ref`: an optional Git ref, tree, commit or tag of the Consonant
   store.
 
@@ -893,9 +901,9 @@ the following keys:
 
 * `uuid`: the UUID of the referenced object,
 * `service`: a service alias resolved via the `consonant.yaml` file of
-  the store, and
+  the store,
 * `ref`: an optional Git ref, tree, commit or tag of the target
-  Consonant store (optional).
+  Consonant store.
 
 # Consonant services / data interface
 
