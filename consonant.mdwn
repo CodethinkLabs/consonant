@@ -1,9 +1,9 @@
 % Consonant Specification, Version 0.0
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
-% July 23th, 2013
+% July 25th, 2013
 
-# Issues with the spec
+# Issues to fix
 
 * What if the `consonant.yaml` file changes over time. What if the
   schema being used changes incompatibly or the `consonant.yaml` file
@@ -15,6 +15,20 @@
   against it.
 * We need to define that bidirectional references may only define
   pairs, not triangles etc.
+* We should probably separate the data model and the data interface
+  into separate specifications. The web API might change and advance
+  to another version independently of the data model.
+* The web API does not have a feature for including hidden objects,
+  e.g. via a `?hidden=true` filter.
+* The HTTP response code behavior is not documented yet.
+* We might want to define a common YAML/JSON body for error responses;
+  this is particularly important for transactions of course but also
+  for read methods where you might want to know what doesn't exist:
+  the class, the object in the class or the property that you've asked
+  for.
+* Do we want to support pagination when requesting a lot of objects?
+* The mandatory `content-type` property for attachment meta data is not
+  not documented yet.
 
 # Introduction
 
@@ -76,7 +90,7 @@ Consonant aims to satisfy these demands by specifying
 
 * a Git/YAML based data model with schemas for type checking and
   validation,
-* a RESTful web API for querying and modifying object stores based on
+* a standard web API for querying and modifying object stores based on
   this data model,
 * a mechanism for referencing objects across different stores.
 
@@ -167,8 +181,7 @@ the store's data. The following elements are present in a tree:
    have been created (e.g. `/card/`, `/lane/`, `/user/`).
 3. One directory in the corresponding object class directory for
    each object that has been created (e.g.
-   `/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/`,
-   `/lane/c675a494-9616-41aa-9833-5629029f6c41/`).
+   `/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/`).
 4. One `properties.yaml` file in each object directory, storing the
    properties of the object.
 5. An optional `attachments/` directory inside each object directory,
@@ -906,6 +919,469 @@ the following keys:
   Consonant store.
 
 # Consonant services / data interface
+
+Through the data model described in the previous chapter, Consonant
+stores already provide an interface to the data that applications can
+use to access, query and modify objects. To support the rapid
+development of web services on top of Consonant stores, however, a
+standard web API is desirable.
+
+This chapter defines a standard web API for accessing Consonant stores.
+Implementations of this web API are called *Consonant services*.
+
+## Web API characteristics
+
+This section covers some of the main characteristics of the web API,
+along with explanations of why they are so important.
+
+### API versioning
+
+Interfaces almost inevitably change over time. The
+changes made may or may not compatible. This is why it is important
+to establish a understanding of the interface version being used in
+the communication between server and client. Versioning interfaces
+has proven to be good practice for protocols (e.g. HTTP 1.0 vs. 1.1),
+D-Bus service interfaces (e.g.  `org.freedesktop.systemd1.Manager`)
+and web APIs (e.g. `http://api.twitter.com/1/` vs.
+`http://api.twitter.com/1.1/`).
+
+The Consonant web API is versioned by being encapsulated in the
+following URL prefix:
+
+    http://url.of.service/consonant/api/<version>/
+
+The first version of the API resides under
+
+    http://url.of.service/consonant/api/1.0/
+
+### RESTful design
+
+REST has become a standard approach to designing web APIs. Consonant
+follows the same principles, including
+
+* a client-server model,
+* stateless communication (services store no client state),
+* cacheable responses,
+* support for transparent addition of layers on top of the underlying
+  store without affecting the web API,
+* a uniform interface to the data that all Consonant services
+  implement.
+
+Note that the above does not apply to the streaming API defined in
+the *Streaming API* section, which involves client state being stored
+on the server side as well as making it impossible to cache most of the
+communication.
+
+### Support for both YAML and JSON
+
+Since the underlying data model uses YAML to represent schemas, store
+configurations as well as objects and their properties it seems natural
+to formulate the web API in terms of exchanging YAML data. However,
+many clients will find it easier to generate and process JSON,
+especially those written in JavaScript.
+
+To compensate for this problem, all methods of the Consonant web API
+accept or return both YAML and JSON.
+
+Request data has to be marked appropriately by setting either
+`Content-Type: application/x-yaml` or
+`Content-Type: application/json` in the HTTP request header.
+
+The desired response format has to be specified by setting the `Accept`
+header to either `Accept: application/x-yaml` or
+`Accept: application/json` when sending an HTTP request that will
+result in a response with data.
+
+#### YAML versus JSON example
+
+The following example shows the same `GET` request being made with
+`Accept: application/x-yaml` and `Accept: application/json`. In the
+rest of this chapter, all examples will use YAML but you can safely
+assume that JSON can be used in exactly the same way.
+
+First, the request using YAML:
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/schema                               |
+|                      |     Accept: application/x-yaml                                  |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     Content-Type: application/x-yaml                            |
+|                      |                                                                 |
+|                      |     uuid: org.yourproject.kanban.schema.1                       |
+|                      |     classes:                                                    |
+|                      |       lane:                                                     |
+|                      |         properties:                                             |
+|                      |           title:                                                |
+|                      |             type: text                                          |
+|                      |           cards:                                                |
+|                      |             type: list                                          |
+|                      |             elements:                                           |
+|                      |               type: reference                                   |
+|                      |               class: card                                       |
+|                      |               bidirectional: lane                               |
+|                      |       card:                                                     |
+|                      |         ...                                                     |
++----------------------+-----------------------------------------------------------------+
+
+Second, the same request using JSON:
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/schema                               |
+|                      |     Accept: application/json                                    |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     Content-Type: application/json                              |
+|                      |                                                                 |
+|                      |     {                                                           |
+|                      |       "uuid": "org.yourproject.kanban.schema.1",                |
+|                      |       "classes": {                                              |
+|                      |         "lane": {                                               |
+|                      |           "properties": {                                       |
+|                      |             "title": {                                          |
+|                      |               "type": "text"                                    |
+|                      |             },                                                  |
+|                      |             "cards": {                                          |
+|                      |               "type": "list"                                    |
+|                      |               "elements": {                                     |
+|                      |                 "type": "reference"                             |
+|                      |                 "class": "card"                                 |
+|                      |                 "bidirectional": "lane"                         |
+|                      |               }                                                 |
+|                      |             }                                                   |
+|                      |           }                                                     |
+|                      |         },                                                      |
+|                      |         "card": {                                               |
+|                      |         ...                                                     |
++----------------------+-----------------------------------------------------------------+
+
+## Basic API
+
+The basic Consonant web API includes a set of `GET` methods to retrieve
+the schema used by the underlying store, classes, objects, properties,
+attachments and Git refs such as branches and tags. It also includes a
+`POST` method to modify objects in the store in the form of
+transactions.
+
+### `GET /schema`
+
+Returns the schema used by the underlying store managed by the Consonant
+service. Use the HTTP `Accept` header to specify whether the schema
+should be returned as YAML or JSON:
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/schema                               |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     uuid: org.yourproject.kanban.schema.1                       |
+|                      |     classes:                                                    |
+|                      |       lane:                                                     |
+|                      |         properties:                                             |
+|                      |           title:                                                |
+|                      |             type: text                                          |
+|                      |           cards:                                                |
+|                      |             type: list                                          |
+|                      |             elements:                                           |
+|                      |               type: reference                                   |
+|                      |               class: card                                       |
+|                      |               bidirectional: lane                               |
+|                      |       card:                                                     |
+|                      |         ...                                                     |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes`
+
+Returns a YAML or JSON dictionary mapping the names of all classes
+available in the store to some meta data, including:
+
+* the number of objects of the class,
+* ...?
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes                              |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     lane:                                                       |
+|                      |       objects:                                                  |
+|                      |         total:  7                                               |
+|                      |         active: 5                                               |
+|                      |         hidden: 2                                               |
+|                      |     card:                                                       |
+|                      |       objects:                                                  |
+|                      |         total:  233                                             |
+|                      |         active: 217                                             |
+|                      |         hidden: 16                                              |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class`
+
+Like `GET /classes` but fetches the meta data for a single class only.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes/lane                         |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     lane:                                                       |
+|                      |       objects:                                                  |
+|                      |         total:  7                                               |
+|                      |         active: 5                                               |
+|                      |         hidden: 2                                               |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class/objects`
+
+Fetches all objects of a given class, including their properties and
+attachment names. The response does not include any attachment meta
+data or content. Object references are not resolved recursively; this
+is the responsibility of the client.
+
+The objects of the class are returned as a list of dictionaries.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes/card/objects                 |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     - uuid: ccb920a2-810a-4264-b022-d92f36f849bf                |
+|                      |       class: card                                               |
+|                      |       hidden: false                                             |
+|                      |       properties:                                               |
+|                      |         title: Fix bug #5932                                    |
+|                      |         comments:                                               |
+|                      |           - uuid: e96dcdf9-fd5f-4e66-af73-58db9ee15701          |
+|                      |           - uuid: b7dbfd80-8afd-44a7-a636-f69c5a9fe517          |
+|                      |       attachments:                                              |
+|                      |         - screenshot.png                                        |
+|                      |     - uuid: 445bf6d4-6dd2-4817-a657-27329b5fbff8                |
+|                      |       class: card                                               |
+|                      |       hidden: false                                             |
+|                      |       properties:                                               |
+|                      |         title: Implement feature XYZ                            |
+|                      |         ...                                                     |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class/objects/:uuid`
+
+Takes a class name and object UUID and returns the properties and
+attachment names for the corresponding object. Returns a 404 if the
+class does not exist or if the object UUID does not refer to an object
+of the given class.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
+|                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca                  |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     class: lane                                                 |
+|                      |     hidden: false                                               |
+|                      |     properties:                                                 |
+|                      |       title: Backlog                                            |
+|                      |       cards:                                                    |
+|                      |         - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29            |
+|                      |         - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000            |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class/objects/:uuid/properties`
+
+Takes a class name and object UUID and returns the properties for the
+corresponding object. Returns a 404 if the class does not exist or if
+the object UUID does not refer to an object of the given class.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
+|                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca/...              |
+|                      |           properties                                            |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     title: Backlog                                              |
+|                      |     cards:                                                      |
+|                      |       - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29              |
+|                      |       - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000              |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class/objects/:uuid/properties/:property`
+
+Takes a class name, an object UUID and a property name and returns the
+value of the corresponding object property. Returns a 404 if the class
+does not exist, if the object UUID does not refer to an object of the
+given class or if a property with the given name does not exist in the
+class.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
+|                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca/...              |
+|                      |           properties/title                                      |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     Backlog                                                     |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class/objects/:uuid/attachments`
+
+Takes a class name and an object UUID and returns a dictionary mapping
+the names of all attachments of the corresponding objec to their meta
+data.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
+|                      |           ccb920a2-810a-4264-b022-d92f36f849bf/...              |
+|                      |           attachments                                           |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     screenshot.png:                                             |
+|                      |       content-type: image/png                                   |
+|                      |       properties:                                               |
+|                      |         description: Screenshot of the bug.                     |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class/objects/:uuid/attachments/:name`
+
+Takes a class name, an object UUID and an attachment name and returns
+the meta data for the attachment. Returns a 404 if the class does not
+exist, if the object UUID does not refer to an object of the given
+class or if no attachment with the given name exists for the object.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
+|                      |           ccb920a2-810a-4264-b022-d92f36f849bf/...              |
+|                      |           attachments/screenshot.png                            |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     content-type: image/png                                     |
+|                      |     properties:                                                 |
+|                      |       description: Screenshot of the bug.                       |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /classes/:class/objects/:uuid/attachments/:name/data`
+
+Takes a class name, an object UUID and an attachment name and returns
+the data of the attachment. The response has the `Content-Type` header
+set to the `content-type` of the attachment meta data. Returns a 404
+if the class does not exist, if the object UUID does not refer to an
+object of the given class or if no attachment with the given name
+exists for the object.
+
+### `GET /objects`
+
+Returns all objects defined in the store, including their properties and
+attachment names. The response does not include any attachment meta data
+or content. Object references are not resolved recursively; this is the
+responsibility of the client.
+
+The result is a dictionary that maps class names to lists of objects.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/objects                              |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     lane:                                                       |
+|                      |       - uuid: b5decbb8-54b6-49a7-923b-7c3e04dfadca              |
+|                      |         class: lane                                             |
+|                      |         hidden: false                                           |
+|                      |         properties:                                             |
+|                      |           title: Backlog                                        |
+|                      |           cards:                                                |
+|                      |             - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29        |
+|                      |             - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000        |
+|                      |         attachments:                                            |
+|                      |           - screenshot.png                                      |
+|                      |       - uuid: dcb7a3e2-0da2-4ca9-befe-122ddd2b9ac2              |
+|                      |         class: lane                                             |
+|                      |         ...                                                     |
+|                      |     cards:                                                      |
+|                      |       - uuid: d75be68f-412f-4a5a-b59b-2c4e9cb94b2c              |
+|                      |         class: card                                             |
+|                      |         ...                                                     |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /objects/:uuid`
+
+Takes an object UUID and returns the properties and attachment names
+for the corresponding object. Returns a 404 if the object UUID does not
+refer to an existing object in the store.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/objects/...                          |
+|                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca                  |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     class: lane                                                 |
+|                      |     hidden: false                                               |
+|                      |     properties:                                                 |
+|                      |       title: Backlog                                            |
+|                      |       cards:                                                    |
+|                      |         - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29            |
+|                      |         - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000            |
+|                      |     attachments:                                                |
+|                      |       - screenshot.png                                          |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /objects/:uuid/class`
+
+Takes an object UUID and returns the name of the object class. Returns
+a 404 if the object UUID does not refer to an existing object in the
+store.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/objects/...                          |
+|                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca/class            |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     lane                                                        |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /objects/:uuid/properties`
+
+Like `GET /classes/:class/objects/:uuid/properties` except that it
+requires no class name and only takes an object UUID.
+
+### `GET /objects/:uuid/properties/:property`
+
+Like `GET /classes/:class/objects/:uuid/properties/:property` except
+that it requires no class name and only takes an object UUID and
+property name.
+
+### `GET /objects/:uuid/attachments`
+
+Like `GET /classes/:class/objects/:uuid/attachments` except that it
+requires no class name and only takes an object UUID.
+
+### `GET /objects/:uuid/attachments/:name`
+
+Like `GET /classes/:class/objects/:uuid/attachments/:name` except that
+it requires no class name and only takes an object UUID and attachment
+name.
+
+### `GET /objects/:uuid/attachments/:name/data`
+
+Like `GET /classes/:class/objects/:uuid/attachments/:name` except that
+it requires no class name and only takes an object UUID and attachment
+name.
+
+### `GET /refs`
+
+TODO
+
+### `GET /refs/:ref`
+
+TODO
+
+### `GET /refs/:ref/classes`
+
+TODO
+
+### `GET /refs/:ref/classes/:ref`
+
+TODO
+
+### `GET /refs/:ref/...`
+
+TODO
+
+### `POST /transaction`
+
+TODO
+
+## Query API
+
+TODO
+
+### `POST /query`
+
+TODO
+
+## Streaming API
+
+TODO
+
+### `GET /stream`
+
+TODO
 
 # Appendix
 
