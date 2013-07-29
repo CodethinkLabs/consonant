@@ -1,7 +1,7 @@
 % Consonant Specification, Version 0.0
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
-% July 25th, 2013
+% July 26th, 2013
 
 # Issues to fix
 
@@ -1345,23 +1345,133 @@ name.
 
 ### `GET /refs`
 
-TODO
+Returns all releveant Git refs of the underlying store. This usually
+includes branches and tags. The Git refs are returned as a dictionary
+mapping ref names (e.g. `refs/heads/username/branchname`) to another
+dictionary per ref, including the following keys:
+
+* `type`: either `branch` or `tag`,
+* `url-aliases`: a list of URL aliases (e.g. `username:branchname`) for
+  the ref that can be passed to Consonant web URLs safely (see the
+  other `GET /refs/...` methods),
+* `head`: most recent commit in the branch (if the ref is a branch) or
+  the commit that was tagged (if the ref is a tag); this is again a
+  dictionary providing not just the commit SHA1 but also authorship
+  information:
+    - `sha1`: the commit SHA1 (which can be passed to other
+      `GET /refs/...` methods safely),
+    - `author`: the author of the commit,
+    - `author-date`: the author date in ISO 8601 format,
+    - `committer`: the committer,
+    - `committer-date`: the commit date in ISO 8601 format,
+    - `subject`: the commit subject,
+    - `parents`: a list of parent commit SHA1s.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/refs                                 |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     HEAD:                                                       |
+|                      |       type: branch                                              |
+|                      |       url-aliases:                                              |
+|                      |         - HEAD                                                  |
+|                      |       head:                                                     |
+|                      |         sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc          |
+|                      |         author: Jeff Arnold <jeff@yourproject.org>              |
+|                      |         author-date: 2013-07-25 21:06:11 +0100                  |
+|                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
+|                      |         committer-date: 2013-07-25 22:15:27 +0100               |
+|                      |         subject: Archive a couple of kanban cards               |
+|                      |         parents:                                                |
+|                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
+|                      |           - 9080579c0387268fe41b4474b25b01baa2ef9f7c            |
+|                      |     refs/heads/master:                                          |
+|                      |       type: branch                                              |
+|                      |       url-aliases:                                              |
+|                      |         - master                                                |
+|                      |         - refs:heads:master                                     |
+|                      |       head:                                                     |
+|                      |         sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc          |
+|                      |         author: Jeff Arnold <jeff@yourproject.org>              |
+|                      |         author-date: 2013-07-25 21:06:11 +0100                  |
+|                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
+|                      |         committer-date: 2013-07-25 22:15:27 +0100               |
+|                      |         subject: Archive a couple of kanban cards               |
+|                      |         parents:                                                |
+|                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
+|                      |           - 9080579c0387268fe41b4474b25b01baa2ef9f7c            |
+|                      |     refs/tags/work-package-1:                                   |
+|                      |       type: tag                                                 |
+|                      |       url-aliases:                                              |
+|                      |         - work-package-1                                        |
+|                      |         - refs:tags:work-package-1                              |
+|                      |       head:                                                     |
+|                      |         sha1: 1f64f272ee61f65d3f539166f6526b7e2e6419e9          |
+|                      |         author: Michael Hobson <micheal@yourproject.org>        |
+|                      |         author-date: 2013-07-18 17:45:39 +0100                  |
+|                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
+|                      |         committer-date: 2013-07-19 11:23:01 +0100               |
+|                      |         subject: Define milestones for work package 1           |
+|                      |         parents:                                                |
+|                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
++----------------------+-----------------------------------------------------------------+
 
 ### `GET /refs/:ref`
 
-TODO
+Like `GET /refs` except that it takes the name/SHA1 of a Git ref and
+returns information about that ref only.
 
-### `GET /refs/:ref/classes`
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/refs/master                          |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |       url-aliases:                                              |
+|                      |         - master                                                |
+|                      |         - refs:heads:master                                     |
+|                      |       head:                                                     |
+|                      |         sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc          |
+|                      |         author: Jeff Arnold <jeff@yourproject.org>              |
+|                      |         author-date: 2013-07-25 21:06:11 +0100                  |
+|                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
+|                      |         committer-date: 2013-07-25 22:15:27 +0100               |
+|                      |         subject: Archive a couple of kanban cards               |
+|                      |         parents:                                                |
+|                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
+|                      |           - 9080579c0387268fe41b4474b25b01baa2ef9f7c            |
++----------------------+-----------------------------------------------------------------+
 
-TODO
+### `GET /refs/:ref/*`
 
-### `GET /refs/:ref/classes/:ref`
+The base URL `/refs/:ref/` replicates the functionality in `GET /` but
+works against a specific Git ref instead of `HEAD`.
 
-TODO
+This means the methods
 
-### `GET /refs/:ref/...`
+* `GET /refs/:ref/classes`
+* `GET /refs/:ref/classes/:class`
+* `GET /refs/:ref/classes/:class/objects`
+* `GET /refs/:ref/classes/:class/objects/:uuid`
+* `GET /refs/:ref/classes/:class/objects/:uuid/properties`
+* `GET /refs/:ref/classes/:class/objects/:uuid/properties/:property`
+* `GET /refs/:ref/classes/:class/objects/:uuid/attachments`
+* `GET /refs/:ref/classes/:class/objects/:uuid/attachments/:name`
+* `GET /refs/:ref/classes/:class/objects/:uuid/attachments/:name/data`
+* `GET /refs/:ref/objects`
+* `GET /refs/:ref/objects/:uuid`
+* `GET /refs/:ref/objects/:uuid/class`
+* `GET /refs/:ref/objects/:uuid/properties`
+* `GET /refs/:ref/objects/:uuid/properties/:property`
+* `GET /refs/:ref/objects/:uuid/attachments`
+* `GET /refs/:ref/objects/:uuid/attachments/:name`
+* `GET /refs/:ref/objects/:uuid/attachments/:name/data`
 
-TODO
+all provide the same interface as
+
+* `GET /classes`
+* `GET /classes/:class`
+* `GET /classes/:class/objects`
+* etc.
+
+except that they retrieve the store data from the Git ref `:ref` instead
+of the default `HEAD`.
 
 ### `POST /transaction`
 
