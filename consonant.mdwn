@@ -29,6 +29,8 @@
 * Do we want to support pagination when requesting a lot of objects?
 * The mandatory `content-type` property for attachment meta data is not
   not documented yet.
+* The `POST /transaction` API needs additional transaction header
+  fields like "author" and "message".
 
 # Introduction
 
