@@ -954,7 +954,7 @@ The first version of the API resides under
 
     http://url.of.service/consonant/api/1.0/
 
-### RESTful design
+### REST-like design
 
 REST has become a standard approach to designing web APIs. Consonant
 follows the same principles, including
@@ -1475,7 +1475,282 @@ of the default `HEAD`.
 
 ### `POST /transaction`
 
-TODO
+Takes `multipart/mixed` data representing a transaction of one or
+multiple actions, including
+
+* object creation and deletion,
+* object manipulation, and
+* object attachment creation, deletion and modification.
+
+The multipart data is structures is structured as a mix of YAML/JSON
+actions and parts with arbitrary content types for attachment data.
+
+It is mandatory for Consonant implementations to verify that
+transactions result in valid stores, i.e., stores that validate
+successfully against their schema.
+
+This also means that any change to a bidirectional reference in a
+transaction always involves removing the old back-reference as well
+as the new back-reference.
+
+#### Transaction header
+
+The first part is mandatory for every `POST /transaction` request.
+It contains the Git commit to base the changes on and the Git ref
+(usually a branch) to commit the result of the transaction to:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: transaction
+    source: <Git ref or commit SHA1>
+    target: <Git ref name>
+
+Note that, just as with the `GET` methods, `POST` supports both
+YAML and JSON as its input.
+
+#### Object creation
+
+Object creation is performed via `create` actions, each associated
+with an identifier that is unique among action identifiers within the
+transaction as well as an object class.
+
+The `properties` key holds a dictionary mapping that defines what the
+different properties of the object to be created shall be set to.
+
+An example transaction creating a kanban card with a specific title
+and description could look as follows:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: transaction
+    source: 8606830399b5f46100ee0985154662dabe9d1080
+    target: refs/heads/master
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: create
+    id: 1
+    class: card
+    properties:
+      title: This is a new card
+      description: |
+        A two-line description for this card explaining what the
+        task is about and where developers can find additional
+        information about related APIs.
+
+#### Object deletion
+
+Object deletion is performed via `delete` actions, each associated
+with an identifier that is unique among action identifiers within the
+transaction as well as an object class.
+
+An example transaction deleting a kanban card with a specific object
+UUID could look as follows:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: transaction
+    source: 8606830399b5f46100ee0985154662dabe9d1080
+    target: refs/heads/master
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: delete
+    id: 1
+    uuid: 3c9924d6-e5a6-4b77-8f40-92dbfaf9ff19
+
+#### Object manipulation
+
+Object manipulation is performed via `update` actions, each associated
+with an identifier that is unique among action identifiers within the
+transaction as well as an object class.
+
+The `properties` key holds a dictionary mapping that maps manipulated
+properties to the desired new values.
+
+An example transaction manipulating a kanban card by changing its
+title and assignee could look as follows:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: transaction
+    source: 8606830399b5f46100ee0985154662dabe9d1080
+    target: refs/heads/master
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: update
+    id: 1
+    class: card
+    properties:
+      title: New title for the card
+      assignees:
+          - jeff@yourproject.org
+
+#### Attachment creation, deletion and manipulation
+
+Attachments can be created, deleted and updated as part of any
+transaction. These actions are, however, different from regular object
+actions in that they usually come in the form of two parts:
+
+* The first part describes the type of action, the object UUID, the
+  attachment name and, optionally, meta data being changed.
+* The second part contains the actual attachment data. This part is
+  only valid for `create-attachment` and `update-attachment` actions
+  and is optional for `update-attachment` actions if only the
+  attachment meta data is being changed.
+
+The first part is a YAML or JSON segment of the form
+
+    Content-Type: application/x-yaml
+
+    action: {create,delete,update}-attachment
+    object: <uuid or action ID>
+
+with an optional `metadata` field for `create-attachment` and
+`update-attachment` to describe changes to the attachment meta
+data (JSON will be transformed to YAML in the store):
+
+    Content-Type: application/x-yaml
+
+    action: <create|update>-attachment
+    id: <action ID>
+    object: <uuid or action ID>
+    metadata:
+      - some
+      - arbitrary
+      - yaml: or json
+        meta: data
+
+The second part is the actually attachment data, which comes in the
+form of an arbitrary `Content-Type` and data.
+
+An example transaction that adds a patch attachment to an issue in an
+issue tracker could look as follows:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: transaction
+    source: 8606830399b5f46100ee0985154662dabe9d1080
+    target: refs/heads/master
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: create-attachment
+    id: 1
+    object: decf91ab-fc9c-4e3c-a838-09d704663a87
+    metadata:
+      author: nick@xfce.org
+      mime-type: text/plain
+      comment: |
+        This patch makes Thunar use the "utilities-terminal" icon
+        name for the default UCA action.
+    --NEXTPLEASE
+    Content-Type: text/plain
+
+    diff --git a/plugins/thunar-uca/uca.xml.in b/plugins/thunar-uca/uca.xml.in
+    --- a/plugins/thunar-uca/uca.xml.in
+    +++ b/plugins/thunar-uca/uca.xml.in
+    @@ -36,6 +36,6 @@
+     <actions>
+
+       <action>
+    -    <icon>Terminal</icon>
+    +    <icon>utilities-terminal</icon>
+         <patterns>*</patterns>
+         <_name>Open Terminal Here</_name>
+
+#### References to newly created objects
+
+When sending transactions with changes to Consonant services, it is
+often necessary to include references to objects that are being created
+as part of the transaction and have an unknown object UUID.
+
+Examples are:
+
+* Creating a kanban card with a bidirectional reference to its lane
+  requires to also insert a reference to this new card in the lane.
+* Moving a kanban card with a bidirectional reference to its lane from
+  one lane to another requires the reference to the card to be removed
+  from the old lane and a new reference to the card to be inserted in
+  its new lane.
+* Creating an object along with uploading an attachment for it requires
+  a reference from the attachment to the object since, at the point of
+  sending the transaction, the object UUID is unknown.
+
+This is what the action IDs of `POST /transaction` are for: in addition
+to regular references of the form
+
+    - uuid: <object UUID>
+
+with optional `service` and `ref` values, references may have the form
+
+    - action: <action ID>
+
+to refer to an object being created or manipulated in one of the
+create, delete or update actions of the transaction.
+
+An example transaction creating a new kanban lane for reviews and moving
+a kanban card from its old lane into the new review lane could look as
+follows:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: transaction
+    commit: 8606830399b5f46100ee0985154662dabe9d1080
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: create
+    id: 1
+    class: lane
+    properties:
+      title: Review lane
+      cards:
+        - 1c562045-0e09-40ca-9f5a-08a697f598ca
+    --NEXTPLEASE
+    Content-type: application/x-yaml
+
+    action: update
+    id: 2
+    uuid: 1c562045-0e09-40ca-9f5a-08a697f598ca
+    properties:
+      lane:
+        action: 1
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: update
+    id: 3
+    uuid: 3caf9294-d72e-4147-9bb2-d21e90782cd4
+    properties:
+      cards:
+        - uuid: d215eefa-8b67-47df-bb0d-134fc4640c23
+        - uuid: 04dfaa16-8368-4c30-ab2e-2b08a3800f7b
+        - uuid: 27d3d3e0-f8a3-4174-acb0-b05ad84b0746
+
+Note how the above example also updates the old lane in action 3 by
+updating its `cards` property to no longer include a reference to
+the moved card.
+
 
 ## Query API
 
