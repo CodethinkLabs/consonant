@@ -1475,6 +1475,19 @@ all provide the same interface as
 except that they retrieve the store data from the Git ref `:ref` instead
 of the default `HEAD`.
 
+## Transaction API
+
+Transactions can be thought of as a semantic interpretation of commits
+to the underlying Consonant repository. Where commits create, modify
+and delete files in the repository, transactions create, modify and
+delete objects and their properties.
+
+The transaction API allows to submit transactions to a Consonant
+service in order to apply changes to its objects via
+`POST /transactions`. It also provides a way to obtain transactions
+previously made to the store via the SHA1 of their corresponding
+commits through `GET /transactions/:sha1`.
+
 ### `POST /transactions`
 
 Takes `multipart/mixed` data representing one or more transactions, each
@@ -1818,6 +1831,56 @@ follows:
 Note how the above example also updates the old lane in action 3 by
 updating its `cards` property to no longer include a reference to
 the moved card.
+
+### `GET /transactions/:sha1`
+
+Obtains the transaction information for a given Git commit SHA1.
+The result is a nested dictionary with the following structure:
+
+* `sha1`: the commit SHA1,
+* `actions`: a list of actions included in the transaction, each
+  represented as a dictionary with an `action` key and other keys
+  dependent on the type of the action (see `POST /transactions` for
+  more information).
+
+The main differences to the input for `POST /transactions` are that
+the format is YAML/JSON only and not a multipart/mixed document and
+that the `target` of the `commit` action is a Git commit SHA1 instead
+of a symbolic ref like `refs/heads/master`.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/transactions/...                     |
+|                      |           12f4b1d99ad018d6fac45703ba63de491d320f6a              |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |       sha1: 12f4b1d99ad018d6fac45703ba63de491d320f6a            |
+|                      |       actions:                                                  |
+|                      |         - action: begin                                         |
+|                      |           source: c1dd82cba74fa4b8d14b66f7275d0c5a1169a7ad      |
+|                      |         - action: create                                        |
+|                      |           id: 1                                                 |
+|                      |           class: lane                                           |
+|                      |           properties:                                           |
+|                      |             title: Review lane                                  |
+|                      |             cards:                                              |
+|                      |               - 1c562045-0e09-40ca-9f5a-08a697f598ca            |
+|                      |         - action: update                                        |
+|                      |           id: 2                                                 |
+|                      |           uuid: 1c562045-0e09-40ca-9f5a-08a697f598ca            |
+|                      |           properties:                                           |
+|                      |             lane:                                               |
+|                      |               action: 1                                         |
+|                      |         - action: update                                        |
+|                      |           id: 3                                                 |
+|                      |           uuid: 3caf9294-d72e-4147-9bb2-d21e90782cd4            |
+|                      |           properties:                                           |
+|                      |             cards:                                              |
+|                      |               - uuid: d215eefa-8b67-47df-bb0d-134fc4640c23      |
+|                      |               - uuid: 04dfaa16-8368-4c30-ab2e-2b08a3800f7b      |
+|                      |               - uuid: 27d3d3e0-f8a3-4174-acb0-b05ad84b0746      |
+|                      |         - action: commit                                        |
+|                      |           target: 6fcf141e93449fb932e2e1ba0d18b9b817ea1694      |
+|                      |           ...                                                   |
++----------------------+-----------------------------------------------------------------+
 
 ## Query API
 
