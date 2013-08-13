@@ -2076,7 +2076,43 @@ queries along with examples on how to use them.
 
 #### The `query` filter
 
-#### The `class` filter
+This filter lets all objects pass that are returned from a another
+query in the same request. It can be inverted to only let objects
+pass that are not returned from the other query.
+
+Syntax:
+
+    filter: query
+    query: <query ID>
+
+where `<query ID>` is the ID of another query in the same request.
+
+Inverted syntax:
+
+    filter: query
+    query: <query ID>
+    inverted: true
+
+#### The `classes` filter
+
+This filter lets all objects pass that are in one of the classes
+passed to the filter. The filter can be inverted to only let objects
+pass that are not in any of the given classes.
+
+Syntax:
+
+    filter: classes
+    classes:
+      - <class name 1>
+      - <class name 2>
+
+Inverted syntax:
+
+    filter: classes
+    classes:
+      - <class name 1>
+      - <class name 2>
+    inverted: true
 
 #### The `objects` filter
 
