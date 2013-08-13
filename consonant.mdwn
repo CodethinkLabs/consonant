@@ -1475,43 +1475,83 @@ all provide the same interface as
 except that they retrieve the store data from the Git ref `:ref` instead
 of the default `HEAD`.
 
-### `POST /transaction`
+### `POST /transactions`
 
-Takes `multipart/mixed` data representing a transaction of one or
-multiple actions, including
+Takes `multipart/mixed` data representing one or more transactions, each
+including one or more actions, including
 
 * object creation and deletion,
 * object manipulation, and
 * object attachment creation, deletion and modification.
 
-The multipart data is structures is structured as a mix of YAML/JSON
-actions and parts with arbitrary content types for attachment data.
+The multipart data is structured as a mix of YAML/JSON actions and parts
+with arbitrary content types for attachment data. Each transaction
+begins with a `begin` action and ends with a `commit` action.
 
 It is mandatory for Consonant implementations to verify that
 transactions result in valid stores, i.e., stores that validate
-successfully against their schema.
+successfully against their schema. This also means that any change to
+a bidirectional reference in a transaction always involves removing
+the old back-reference as well as the new back-reference.
 
-This also means that any change to a bidirectional reference in a
-transaction always involves removing the old back-reference as well
-as the new back-reference.
+#### Begin of transaction
 
-#### Transaction header
-
-The first part is mandatory for every `POST /transaction` request.
-It contains the Git commit to base the changes on and the Git ref
-(usually a branch) to commit the result of the transaction to:
+Each transaction starts with a `begin` action. It contains the SHA1 of
+the Git commit to base the changes on:
 
     Content-Type: multipart/mixed; boundary=NEXTPLEASE
 
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
-    action: transaction
-    source: <Git ref or commit SHA1>
-    target: <Git ref name>
+    action: begin
+    source: <commit SHA1>
 
-Note that, just as with the `GET` methods, `POST` supports both
-YAML and JSON as its input.
+#### End of transaction
+
+Each transaction ends with a `commit` action. It has to include the
+following information:
+
+* `target`: name of the Git ref to apply the transaction to (e.g.
+  `refs/heads/master`),
+* `author`: name and email address of the person who is making
+  the changes or has made them originally (format:
+  `FIRSTNAME LASTNAME <EMAIL>`),
+* `author-date`: timestamp of the original change (format: `%s %z`),
+* `committer`: name and email address of the person who is submitting
+  the changes (format: `FIRSTNAME LASTNAME <EMAIL>`),
+* `committer-date`: timestamp of the transaction submission,
+* `message`: commit message in the following format:
+
+        Subject line briefly describing the changes, max 72 characters
+
+        Zero or more paragraphs describing the changes in more detail.
+        These paragraphs follow the same max 72 characters per line
+        limits.
+
+        This is just another paragraph to demonstrate that it is ok
+        to have more than one.
+
+The following example shows an empty transaction with a `begin` and
+a `commit` action:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: begin
+    source: f26c77d56a98374ead1aaf7608984ff3746636c1
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: commit
+    target: refs/heads/master
+    author: Samuel Bartlett <samuel@yourproject.org>
+    author-date: 1374687746 +0100
+    committer: IRC Code Review Bot <reviewbot@yourproject.org>
+    committer-date: 1374782771 +0100
+    message: +1 by Samuel to merge request MR3912
 
 #### Object creation
 
@@ -1530,9 +1570,8 @@ and description could look as follows:
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
-    action: transaction
+    action: begin
     source: 8606830399b5f46100ee0985154662dabe9d1080
-    target: refs/heads/master
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
@@ -1545,6 +1584,12 @@ and description could look as follows:
         A two-line description for this card explaining what the
         task is about and where developers can find additional
         information about related APIs.
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: commit
+    target: refs/heads/master
+    ...
 
 #### Object deletion
 
@@ -1560,15 +1605,20 @@ UUID could look as follows:
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
-    action: transaction
+    action: begin
     source: 8606830399b5f46100ee0985154662dabe9d1080
-    target: refs/heads/master
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
     action: delete
     id: 1
     uuid: 3c9924d6-e5a6-4b77-8f40-92dbfaf9ff19
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: commit
+    target: refs/heads/master
+    ...
 
 #### Object manipulation
 
@@ -1587,9 +1637,8 @@ title and assignee could look as follows:
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
-    action: transaction
+    action: begin
     source: 8606830399b5f46100ee0985154662dabe9d1080
-    target: refs/heads/master
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
@@ -1600,6 +1649,12 @@ title and assignee could look as follows:
       title: New title for the card
       assignees:
           - jeff@yourproject.org
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: commit
+    target: refs/heads/master
+    ...
 
 #### Attachment creation, deletion and manipulation
 
@@ -1647,9 +1702,8 @@ issue tracker could look as follows:
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
-    action: transaction
+    action: begin
     source: 8606830399b5f46100ee0985154662dabe9d1080
-    target: refs/heads/master
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
@@ -1676,6 +1730,12 @@ issue tracker could look as follows:
     +    <icon>utilities-terminal</icon>
          <patterns>*</patterns>
          <_name>Open Terminal Here</_name>
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: commit
+    target: refs/heads/master
+    ...
 
 #### References to newly created objects
 
@@ -1716,8 +1776,8 @@ follows:
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
-    action: transaction
-    commit: 8606830399b5f46100ee0985154662dabe9d1080
+    action: begin
+    source: 8606830399b5f46100ee0985154662dabe9d1080
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
@@ -1748,6 +1808,12 @@ follows:
         - uuid: d215eefa-8b67-47df-bb0d-134fc4640c23
         - uuid: 04dfaa16-8368-4c30-ab2e-2b08a3800f7b
         - uuid: 27d3d3e0-f8a3-4174-acb0-b05ad84b0746
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: commit
+    target: refs/heads/master
+    ...
 
 Note how the above example also updates the old lane in action 3 by
 updating its `cards` property to no longer include a reference to
@@ -1872,7 +1938,7 @@ In YAML:
 
     queries:
       - root: 2654c6ca-4c03-48aa-91b6-9eb483a0ce3c
-        chain:
+        pipeline:
           - action: follow
             property: cards
           - action: follow
@@ -1924,7 +1990,7 @@ In YAML:
 
     queries:
       - root: university-of-manchester
-        chain:
+        pipeline:
           - action: follow
             property: departments
           - action: match
