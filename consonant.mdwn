@@ -1839,13 +1839,10 @@ the moved card.
 ### `GET /transactions/:sha1`
 
 Obtains the transaction information for a given Git commit SHA1.
-The result is a nested dictionary with the following structure:
-
-* `sha1`: the commit SHA1,
-* `actions`: a list of actions included in the transaction, each
-  represented as a dictionary with an `action` key and other keys
-  dependent on the type of the action (see `POST /transactions` for
-  more information).
+The result is a list of actions included in the transaction, each
+represented as a dictionary with an `action` key and other keys
+dependent on the type of the action (see `POST /transactions` for
+more information).
 
 The output format of `GET /transactions/:sha1` is similar but different
 to the input of `POST /transactions`:
@@ -1861,35 +1858,56 @@ to the input of `POST /transactions`:
 | **Example Request**  |     GET /consonant/api/1.0/transactions/...                     |
 |                      |           12f4b1d99ad018d6fac45703ba63de491d320f6a              |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |       sha1: 12f4b1d99ad018d6fac45703ba63de491d320f6a            |
-|                      |       actions:                                                  |
-|                      |         - action: begin                                         |
-|                      |           source: c1dd82cba74fa4b8d14b66f7275d0c5a1169a7ad      |
-|                      |         - action: create                                        |
-|                      |           id: 1                                                 |
-|                      |           class: lane                                           |
-|                      |           properties:                                           |
-|                      |             title: Review lane                                  |
-|                      |             cards:                                              |
-|                      |               - 1c562045-0e09-40ca-9f5a-08a697f598ca            |
-|                      |         - action: update                                        |
-|                      |           id: 2                                                 |
-|                      |           uuid: 1c562045-0e09-40ca-9f5a-08a697f598ca            |
-|                      |           properties:                                           |
-|                      |             lane:                                               |
-|                      |               action: 1                                         |
-|                      |         - action: update                                        |
-|                      |           id: 3                                                 |
-|                      |           uuid: 3caf9294-d72e-4147-9bb2-d21e90782cd4            |
-|                      |           properties:                                           |
-|                      |             cards:                                              |
-|                      |               - uuid: d215eefa-8b67-47df-bb0d-134fc4640c23      |
-|                      |               - uuid: 04dfaa16-8368-4c30-ab2e-2b08a3800f7b      |
-|                      |               - uuid: 27d3d3e0-f8a3-4174-acb0-b05ad84b0746      |
-|                      |         - action: commit                                        |
-|                      |           target: 6fcf141e93449fb932e2e1ba0d18b9b817ea1694      |
-|                      |           ...                                                   |
+| **Example Response** |     - action: begin                                             |
+|                      |       source: c1dd82cba74fa4b8d14b66f7275d0c5a1169a7ad          |
+|                      |     - action: create                                            |
+|                      |       id: 1                                                     |
+|                      |       class: lane                                               |
+|                      |       properties:                                               |
+|                      |         title: Review lane                                      |
+|                      |         cards:                                                  |
+|                      |           - 1c562045-0e09-40ca-9f5a-08a697f598ca                |
+|                      |     - action: update                                            |
+|                      |       id: 2                                                     |
+|                      |       uuid: 1c562045-0e09-40ca-9f5a-08a697f598ca                |
+|                      |       properties:                                               |
+|                      |         lane:                                                   |
+|                      |           action: 1                                             |
+|                      |     - action: update                                            |
+|                      |       id: 3                                                     |
+|                      |       uuid: 3caf9294-d72e-4147-9bb2-d21e90782cd4                |
+|                      |       properties:                                               |
+|                      |         cards:                                                  |
+|                      |           - uuid: d215eefa-8b67-47df-bb0d-134fc4640c23          |
+|                      |           - uuid: 04dfaa16-8368-4c30-ab2e-2b08a3800f7b          |
+|                      |           - uuid: 27d3d3e0-f8a3-4174-acb0-b05ad84b0746          |
+|                      |     - action: commit                                            |
+|                      |       target: 6fcf141e93449fb932e2e1ba0d18b9b817ea1694          |
+|                      |       ...                                                       |
 +----------------------+-----------------------------------------------------------------+
+
+### `GET /transactions/:from/:to`
+
+Takes two Git commit refs or SHA1s and returns the contents of a
+transaction that would update the store from the state in ref or commit
+`:from` to the state in ref or commit `:to`.
+
+Possible use cases for this include:
+
+1. Polling for all changes to a ref (e.g. `refs/heads/master`) since the
+   last known transaction (e.g.
+   `805cf1a2cf23ac2f4b1de23ee9b5eec98c815953`):
+
+        GET /consonant/api/1.0/transactions/
+              805cf1a2cf23ac2f4b1de23ee9b5eec98c815953/master
+2. Obtain the reverse transaction in order to undo a change.
+3. Obtain the transaction equivalent to merging two branches.
+
+The output format of `GET /transactions/:from/:to` is equivalent to
+that of `GET /transactions/:sha1` except that, since the transaction
+may not actually exist in the store as a commit, some fields of the
+`commit` action may not be set. This includes the fields `target`,
+`author`, `author-date`, `committer`, `committer-date` and `message`.
 
 ### `GET /commits/:sha1`
 
@@ -1928,197 +1946,7 @@ have been added, modified and deleted by listing their UUIDs.
 
 ## Query API
 
-Thoughts on the query API:
-
-* Start with a root object UUID, assemble the result by executing a
-  chain of operations such as following object references, selecting
-  particular properties, applying methods to sort and simplify the
-  result.
-* Allow actions and queries only on objects, no on properties or
-  attachments.
-* If references to other stores are processed, generate lists of
-  subqueries for those stores, send them over and wait for the
-  results.
-* Would we need partial results (e.g. for pagination, lazy loading)?
-* We might want to allow queries to be expressed as YAML/JSON. Then
-  we could e.g. store statistics views in kanban, along with query
-  YAML and some JS to render queries for project managers etc.
-* We'll need arbitrary depth traversals for traversing the Git history.
-* What do we need to be able to make queries like "how often did we
-  change the deadline for this milestone?" or "how long has this card
-  not been moved?"
-* Perhaps virtual properties for commits, which in turn are virtual
-  objects with references to their parent commits etc.?
-
-### Example queries
-
-Retrieve artist name and album title for albums by artist Bjork from a
-specific music collection (`music-collection-1`):
-
-    music-collection-1.<albums>.match(artist, Bjork)[artist, title]
-
-In YAML:
-
-    queries:
-      - root: music-collection-1
-        pipeline:
-          - action: follow
-            property: albums
-          - action: match
-            property: artist
-            value: Bjork
-          - action: select
-            properties:
-              - artist
-              - title
-              - cover
-
-Result:
-
-    results:
-      - root: music-collection-1
-        albums:
-          - uuid: f12db62d-245e-4199-965d-492e4683624d
-            class: album
-            properties:
-              artist: Bjork
-              title: Biophilia
-          - uuid: bfa994f2-b34c-4bd4-a70b-df66b35c6db7
-            class: album
-            properties:
-              artist: Bjork
-              title: Debut
-
-Retrieve artist name and album title for albums by artist Bjork from a
-specific music collection (`music-collection-1`), including the
-collection owner:
-
-    music-collection-1[owner].<albums>.match(artist, Bjork)[artist, title]
-
-In YAML:
-
-    queries:
-      - root: music-collection-1
-        pipeline:
-          - action: select
-            properties:
-              - owner
-          - action: follow
-            property: albums
-          - action: match
-            property: artist
-            value: Bjork
-          - action: select
-            properties:
-              - artist
-              - title
-
-Result:
-
-    results:
-      - root: music-collection-1
-        properties:
-          owner: Rob Taylor
-        albums:
-          - uuid: f12db62d-245e-4199-965d-492e4683624d
-            class: album
-            properties:
-              artist: Bjork
-              title: Biophilia
-          - uuid: bfa994f2-b34c-4bd4-a70b-df66b35c6db7
-            class: album
-            properties:
-              artist: Bjork
-              title: Debut
-
-
-Query all users that are assigned one or more cards in a hypothetical
-lane of a kanban system (`2654c6ca-4c03-48aa-91b6-9eb483a0ce3c`) and
-sort the resulting list by their names. Also, eliminate duplicate
-entries in the result and only return the name and email properties of
-the users:
-
-    2654c6ca-4c03-48aa-91b6-9eb483a0ce3c.<cards>.<assignees>
-        .unique.sort(name, ascending)[name, email]
-
-In YAML:
-
-    queries:
-      - root: 2654c6ca-4c03-48aa-91b6-9eb483a0ce3c
-        pipeline:
-          - action: follow
-            property: cards
-          - action: follow
-            property: owner
-          - action: method
-            method: unique
-          - action: match
-            property: assignees
-            value: rob.taylor@codethink.co.uk
-          - action: method
-            method: sort
-            parameters:
-              - name
-              - ascendoing
-          - action: select
-            properties:
-              - name
-
-Result:
-
-    results:
-      - root: 2654c6ca-4c03-48aa-91b6-9eb483a0ce3c
-        assignees:
-          - uuid: b92789f0-1045-44b2-b858-bc64a639e582
-            class: user
-            service: users
-            properties:
-              name: Harvey Sykes
-              email: harvey.sykes@yourproject.org
-          - uuid: 1a252e48-73ce-46a3-bd91-fea35a32c8f0
-            class: user
-            service: users
-            properties:
-              name: Hollie Ellis
-              email: hollie.ellis@yourproject.org
-          - uuid: a591075d-e780-4bfc-bd55-6a04cbb3da46
-            class: user
-            service: users
-            properties:
-              name: James Mahmood
-              email: james.mahmood@yourproject.org
-
-Query the lecturers of all science departments:
-
-    university-of-manchester.<departments>
-        .match(type, science).<lecturers>[name]
-
-In YAML:
-
-    queries:
-      - root: university-of-manchester
-        pipeline:
-          - action: follow
-            property: departments
-          - action: match
-            property: type
-            value: science
-          - action: follow
-            property: lecturers
-
-Result:
-
-    results:
-      - uuid: university-of-manchester
-        lecturers:
-          - uuid: 0950ccec-3631-4baa-a826-3dccf3f73842
-            class: staff
-            properties:
-              name: Katie Porter
-          - uuid: aeb1e546-7227-4141-93c3-da644fdecb01
-            class: staff
-            properties:
-              name: Harley Taylor
+The query API
 
 ### `POST /query`
 
