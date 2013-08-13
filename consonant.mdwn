@@ -1946,11 +1946,155 @@ have been added, modified and deleted by listing their UUIDs.
 
 ## Query API
 
-The query API
+While for some applications simple object access via the basic API may
+be sufficient, more complex applications will almost always require
+more advanced ways of filtering and fetching objects from the store.
+
+The query API provides a way to formulate advanced queries. Every query
+starts from a Git ref or commit and includes a sequence of filters to
+reduce or transform the resulting list of objects in that ref or commit
+step by step.
+
+Queries are submitted via `POST /query` either as JSON or YAML. The
+result is again in JSON or YAML format.
 
 ### `POST /query`
 
-TODO
+Takes a Git ref or commit SHA1 and a list of queries against the store
+at the given ref/commit and returns a list of results for each of these
+queries.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     POST /consonant/api/1.0/query                               |
+|                      |     Content-Type: application/x-yaml                            |
+|                      |     Accept: application/x-yaml                                  |
+|                      |                                                                 |
+|                      |     ref: refs/heads/master                                      |
+|                      |     queries:                                                    |
+|                      |       - id: non-empty-lanes                                     |
+|                      |         filters:                                                |
+|                      |           - filter: class                                       |
+|                      |             class: lane                                         |
+|                      |           - filter: is-set                                      |
+|                      |             property: cards                                     |
+|                      |           - filter: properties                                  |
+|                      |             properties:                                         |
+|                      |               - title                                           |
+|                      |       - id: cards-not-in-doing                                  |
+|                      |         filters:                                                |
+|                      |           - filter: query                                       |
+|                      |             query: non-empty-lanes                              |
+|                      |           - filter: match                                       |
+|                      |             property: title                                     |
+|                      |             value: ^Done$                                       |
+|                      |             inverted: true                                      |
+|                      |           - filter: references                                  |
+|                      |             property: cards                                     |
++----------------------+-----------------------------------------------------------------+
+| **Example Response** |     TODO                                                        |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
+|                      |                                                                 |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /transactions/:from/:to`
+
+Takes two Git commit refs or SHA1s and returns the contents of a
+transaction that would update the store from the state in ref or commit
+`:from` to the state in ref or commit `:to`.
+
+Possible use cases for this include:
+
+### Query format
+
+The input to `POST /query` is either a JSON or a YAML dictionary with
+the following fields:
+
+* `ref` (optional): Git ref or commit to base the queries on (defaults
+  to `HEAD` if omitted),
+* `queries`: a list of queries, each again represented as a dictionary
+  with the following fields:
+    - `id` (optional): a string that uniquely identifies the query
+      among all queries submitted in the request,
+    - `filters` (optional): a list of filters to reduce or transform
+      the resulting object list, starting from all objects in the store
+      at the given ref or commit (if no filters are specified, all
+      objects in the store at the given ref/commit are selected).
+
+### Query result format
+
+The result of a query is delivered as either a JSON or YAML
+dictionary, depending on the `Accept` header of the query request,
+and will include the following keys:
+
+* `commit`: Git commit SHA1 the queries were executed against,
+* `results`: a list of results, one for each query, each represented
+  as a list of (partial) objects.
+
+### Filters
+
+Every query starts off with a preliminary result that includes all
+objects in the store at the given Git ref or commit with all their
+properties. Filters allow to
+
+* reduce the set of objects returned by the query,
+* replace them with objects they reference to,
+* transform the objects by selecting only a partial set of their
+  properties, or
+* retrieve a history all changes made to the objects.
+
+All filters take a list of objects of any class and, apart from
+the `changes` filter, return a list of objects of the same or any
+other class. The sequence of filters in a query can be thought of
+as a pipeline through which the entire set of objects in the store
+is sent to return a subset useful for the client making the query.
+
+This section defines all filters available for use in Consonant
+queries along with examples on how to use them.
+
+#### The `query` filter
+
+#### The `class` filter
+
+#### The `objects` filter
+
+#### The `hidden` filter
+
+#### The `references` filter
+
+#### The `is-set` filter
+
+#### The `is-equal` filter
+
+#### The `contains` filter
+
+#### The `match` filter
+
+#### The `properties` filter
+
+#### The `changes` filter
 
 ## Streaming API
 
