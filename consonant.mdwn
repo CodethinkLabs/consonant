@@ -1363,9 +1363,9 @@ dictionary per ref, including the following keys:
     - `sha1`: the commit SHA1 (which can be passed to other
       `GET /refs/...` methods safely),
     - `author`: the author of the commit,
-    - `author-date`: the author date in ISO 8601 format,
+    - `author-date`: the author date in raw Git date format (%s %z),
     - `committer`: the committer,
-    - `committer-date`: the commit date in ISO 8601 format,
+    - `committer-date`: the commit date in raw Git date format (%s %z),
     - `subject`: the commit subject,
     - `parents`: a list of parent commit SHA1s.
 
@@ -1379,9 +1379,9 @@ dictionary per ref, including the following keys:
 |                      |       head:                                                     |
 |                      |         sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc          |
 |                      |         author: Jeff Arnold <jeff@yourproject.org>              |
-|                      |         author-date: 2013-07-25 21:06:11 +0100                  |
+|                      |         author-date: 1374684008 +0100                           |
 |                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
-|                      |         committer-date: 2013-07-25 22:15:27 +0100               |
+|                      |         committer-date: 1374782771 +0100                        |
 |                      |         subject: Archive a couple of kanban cards               |
 |                      |         parents:                                                |
 |                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
@@ -1394,9 +1394,9 @@ dictionary per ref, including the following keys:
 |                      |       head:                                                     |
 |                      |         sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc          |
 |                      |         author: Jeff Arnold <jeff@yourproject.org>              |
-|                      |         author-date: 2013-07-25 21:06:11 +0100                  |
+|                      |         author-date: 1374684008 +0100                           |
 |                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
-|                      |         committer-date: 2013-07-25 22:15:27 +0100               |
+|                      |         committer-date: 1374782771 +0100                        |
 |                      |         subject: Archive a couple of kanban cards               |
 |                      |         parents:                                                |
 |                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
@@ -1409,9 +1409,9 @@ dictionary per ref, including the following keys:
 |                      |       head:                                                     |
 |                      |         sha1: 1f64f272ee61f65d3f539166f6526b7e2e6419e9          |
 |                      |         author: Michael Hobson <micheal@yourproject.org>        |
-|                      |         author-date: 2013-07-18 17:45:39 +0100                  |
+|                      |         author-date: 1375449899 +0100                           |
 |                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
-|                      |         committer-date: 2013-07-19 11:23:01 +0100               |
+|                      |         committer-date: 1375464272 +0100                        |
 |                      |         subject: Define milestones for work package 1           |
 |                      |         parents:                                                |
 |                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
@@ -1431,9 +1431,9 @@ returns information about that ref only.
 |                      |       head:                                                     |
 |                      |         sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc          |
 |                      |         author: Jeff Arnold <jeff@yourproject.org>              |
-|                      |         author-date: 2013-07-25 21:06:11 +0100                  |
+|                      |         author-date: 1374684008 +0100                           |
 |                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
-|                      |         committer-date: 2013-07-25 22:15:27 +0100               |
+|                      |         committer-date: 1374782771 +0100                        |
 |                      |         subject: Archive a couple of kanban cards               |
 |                      |         parents:                                                |
 |                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
@@ -1487,6 +1487,10 @@ service in order to apply changes to its objects via
 `POST /transactions`. It also provides a way to obtain transactions
 previously made to the store via the SHA1 of their corresponding
 commits through `GET /transactions/:sha1`.
+
+Meta data for a commit, including authorship information, parent
+commits and a less detailed overview of the changes made by a commit
+can be obtained via a separate method `GET /commits/:sha1`.
 
 ### `POST /transactions`
 
@@ -1843,10 +1847,15 @@ The result is a nested dictionary with the following structure:
   dependent on the type of the action (see `POST /transactions` for
   more information).
 
-The main differences to the input for `POST /transactions` are that
-the format is YAML/JSON only and not a multipart/mixed document and
-that the `target` of the `commit` action is a Git commit SHA1 instead
-of a symbolic ref like `refs/heads/master`.
+The output format of `GET /transactions/:sha1` is similar but different
+to the input of `POST /transactions`:
+
+* The format is a single YAML/JSON dictionary and not a multipart/mixed
+  document.
+* The `target` of the `commit` action is a Git commit SHA1 instead
+  of a symbolic ref like `refs/heads/master`.
+* The values of binary properties are not included in the result
+  but are provided as links.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example Request**  |     GET /consonant/api/1.0/transactions/...                     |
@@ -1880,6 +1889,41 @@ of a symbolic ref like `refs/heads/master`.
 |                      |         - action: commit                                        |
 |                      |           target: 6fcf141e93449fb932e2e1ba0d18b9b817ea1694      |
 |                      |           ...                                                   |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /commits/:sha1`
+
+Takes a Git commit SHA1 and returns information about the commit,
+including the parent commits (left parent first, then optionally right
+parent in case of merge commits).
+
+This method does not fully expand changes to objects into actions like
+`GET /transactions/:sha1` does. Instead, it only lists which objects
+have been added, modified and deleted by listing their UUIDs.
+
++----------------------+-----------------------------------------------------------------+
+| **Example Request**  |     GET /consonant/api/1.0/commits/..                           |
+|                      |           1425674028f4936dacb82e925ad1d7daa66fe810              |
++----------------------+-----------------------------------------------------------------+
+|                      |     sha1: 1425674028f4936dacb82e925ad1d7daa66fe810              |
+|                      |     parents:                                                    |
+|                      |       - 82b003ed458f7d689e190ac31a1fb6834fa73541                |
+|                      |       - 2d5c01132d0213e1135bb893027ae2676c900aa0                |
+|                      |     author: Aidan Wilkins <aidan@yourproject.org>               |
+|                      |     author-date: 1376405234 +0100                               |
+|                      |     committer: Aidan Wilkins <aidan@yourproject.org>            |
+|                      |     committer-date: 1376405234 +0100                            |
+|                      |     message: Update project kanban after meeting                |
+|                      |     objects:                                                    |
+|                      |       added:                                                    |
+|                      |         - 0a29c340-fa82-419d-9041-7042282300c1                  |
+|                      |         - e609775d-fd34-49fb-bc6d-f619de6ac17e                  |
+|                      |         - c5b79eb8-fbce-4d3a-859f-fcc7f0499b1a                  |
+|                      |       modified:                                                 |
+|                      |         - 29c483e8-ae3c-4aec-bd1a-42070a532fd8                  |
+|                      |       deleted:                                                  |
+|                      |         - 741581e1-ef85-42db-ad69-2ec398a2a6aa                  |
+|                      |         - 9c8c11c5-6780-48a0-b997-d85d4b0290af                  |
 +----------------------+-----------------------------------------------------------------+
 
 ## Query API
