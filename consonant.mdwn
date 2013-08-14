@@ -1950,307 +1950,64 @@ While for some applications simple object access via the basic API may
 be sufficient, more complex applications will almost always require
 more advanced ways of filtering and fetching objects from the store.
 
-The query API provides a way to formulate advanced queries. Every query
-starts from a Git ref or commit and includes a sequence of filters to
-reduce or transform the resulting list of objects in that ref or commit
-step by step.
+The query API provides a way to formulate advanced queries by
+representing each Consonant store as a directed, potentially cyclic
+graph. This graph is then processed with a simple graph query language.
 
-Queries are submitted via `POST /query` either as JSON or YAML. The
-result is again in JSON or YAML format.
+This section describes the query graph, the query language, the query
+output format and the actual query web API.
+
+### Query graph
+
+The graph of a Consonant store consists of two types of nodes, *commit
+nodes* and *object nodes*, both of have properties pointing to the
+underlying commits and objects as well as other nodes. The connections
+between nodes are not expressed via explicit edge elements but via
+properties that reference other nodes.
+
+*Commit nodes* each represent a commit in the store. There are as many
+commit nodes as there are commits in the store. Each commit node has
+the following properties:
+
+* `id`: a canonical identifier of the form
+  `[<store UUID>].<commit SHA1>`;
+* `commit`: the commit represented by the commit node;
+* `parents`: a list of references to the commit nodes representing
+  the parent commits of the commit represented by the node itself,
+  with the left parent node reference, if present, coming first;
+  `parents` may be empty if the commit has no parents;
+* `objects`: a set of references to all object nodes representing
+  objects in the commit represented by the commit node.
+
+*Object nodes* each represent object at a specific commit. There is
+one object node for each object in each commit of the store. While the
+underlying objects may be present in various commits, object nodes
+only exist once in the graph. Each object node has the following
+properties:
+
+* `id`: a canonical identifier of the form
+  `[<store UUID>].<commit SHA1>.<object UUID>`;
+* `object`: the object represented by the object node;
+* `commit`: a reference to the commit node of the commit the object
+  was loaded from.
+
+### Query langauge
 
 ### `POST /query`
 
-Takes a Git ref or commit SHA1 and a list of queries against the store
-at the given ref/commit and returns a list of results for each of these
-queries.
+### `POST /classes/:class/query`
 
-+----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     POST /consonant/api/1.0/query                               |
-|                      |     Content-Type: application/x-yaml                            |
-|                      |     Accept: application/x-yaml                                  |
-|                      |                                                                 |
-|                      |     ref: refs/heads/master                                      |
-|                      |     queries:                                                    |
-|                      |       - id: non-empty-lanes                                     |
-|                      |         filters:                                                |
-|                      |           - filter: class                                       |
-|                      |             class: lane                                         |
-|                      |           - filter: is-set                                      |
-|                      |             property: cards                                     |
-|                      |           - filter: properties                                  |
-|                      |             properties:                                         |
-|                      |               - title                                           |
-|                      |       - id: cards-not-in-doing                                  |
-|                      |         filters:                                                |
-|                      |           - filter: query                                       |
-|                      |             query: non-empty-lanes                              |
-|                      |           - filter: match                                       |
-|                      |             property: title                                     |
-|                      |             value: ^Done$                                       |
-|                      |             inverted: true                                      |
-|                      |           - filter: references                                  |
-|                      |             property: cards                                     |
-+----------------------+-----------------------------------------------------------------+
-| **Example Response** |     TODO                                                        |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-|                      |                                                                 |
-+----------------------+-----------------------------------------------------------------+
+### `POST /classes/:class/objects/:uuid/query`
 
-### `GET /transactions/:from/:to`
+### `POST /objects/:uuid/query`
 
-Takes two Git commit refs or SHA1s and returns the contents of a
-transaction that would update the store from the state in ref or commit
-`:from` to the state in ref or commit `:to`.
+### `POST /refs/:ref/query`
 
-Possible use cases for this include:
+### `POST /refs/:ref/classes/:class/query`
 
-### Query format
+### `POST /refs/:ref/classes/:class/objects/:uuid/query`
 
-The input to `POST /query` is either a JSON or a YAML dictionary with
-the following fields:
-
-* `ref` (optional): Git ref or commit to base the queries on (defaults
-  to `HEAD` if omitted),
-* `queries`: a list of queries, each again represented as a dictionary
-  with the following fields:
-    - `id` (optional): a string that uniquely identifies the query
-      among all queries submitted in the request,
-    - `filters` (optional): a list of filters to reduce or transform
-      the resulting object list, starting from all objects in the store
-      at the given ref or commit (if no filters are specified, all
-      objects in the store at the given ref/commit are selected).
-
-### Query result format
-
-The result of a query is delivered as either a JSON or YAML
-dictionary, depending on the `Accept` header of the query request,
-and will include the following keys:
-
-* `commit`: Git commit SHA1 the queries were executed against,
-* `results`: a list of results, one for each query, each represented
-  as a list of (partial) objects.
-
-### Filters
-
-Every query starts off with a preliminary result that includes all
-objects in the store at the given Git ref or commit with all their
-properties. Filters allow to
-
-* reduce the set of objects returned by the query,
-* replace them with objects they reference to,
-* transform the objects by selecting only a partial set of their
-  properties, or
-* retrieve a history all changes made to the objects.
-
-All filters take a set of objects of any class and, apart from
-the `changes` filter, return a set of objects of the same or any
-other class. The sequence of filters in a query can be thought of
-as a pipeline through which the entire set of objects in the store
-is sent to return a subset useful for the client making the query.
-
-This section defines all filters available for use in Consonant
-queries along with examples on how to use them.
-
-#### The `union` filter
-
-Adds all objects from other queries, a list of classes or a list
-of objects to the result set.
-
-The `union` filter has the following parameters:
-
-* `queries:` (optional): a list of query IDs, all objects resulting
-  from the referenced queries are added to the result set;
-* `classes` (optional): a list of class names, all objects in these
-  classes are added to the result set;
-* `objects` (optional): a list of object UUIDs, the corresponding
-  objects to be added to the result set.
-
-The `queries`, `classes` and `objects` parameters can be combined
-arbitrarily. If none of these parameters are provided, the filter
-will have no effect and will yield the result set unmodified.
-
-#### The `intersection` filter
-
-Preserves objects that the result set has in common with the result set
-of other queries, the objects of a list of classes or a given list of
-objects. Drops all objects that are not in any of these queries,
-classes or given objects.
-
-The `intersection` filter has the following parameters:
-
-* `queries` (optional): a list of query IDs, all objects resulting from
-  any of these queries are preserved;
-* `classes` (optional): a list of class names, all objects in any of
-  these classes are preserved;
-* `objects` (optional): a list of object UUIDs, all corresponding
-  objects are preserved.
-
-The `queries`, `classes` and `objects` parameters can be combined
-arbitrarily. If none of these parameters are provided, the filter will
-drop all elements and yield an empty result set.
-
-#### The `subtraction` filter
-
-Drops objects from the result set that are in other queries, classes or
-a given list of objects.
-
-The `subtraction` filter has the following parameters:
-
-* `queries` (optional): a list of query IDs, all objects resulting from
-  any of the referenced queries are dropped from the result set;
-* `classes` (optional): a list of class names, all objects in any of
-  these classes are dropped from the result set;
-* `objects` (optional): a list of object UUIDs, all corresponding
-  objects are dropped from the result set.
-
-The `queries`, `classes` and `objects` parameters can be combined
-arbitrarily. If none of these parameters are provided, the filter
-will have no effect and will yield the result set unmodified.
-
-#### The `hidden` filter
-
-TODO
-
-#### The `references` filter
-
-Replaces all objects in the result set by objects they reference through
-a given property.
-
-The `references` filter has the following parameters:
-
-* `property`: the name of a reference property; objects in the result
-  set will be replaced with the objects they reference via this
-  property; if an object does not have this property set or if the
-  property does not exist in the class of an object, the object will
-  be dropped quietly.
-
-#### The `is-set` filter
-
-Preserves only those objects in the result set that have a given
-property set and drops all other objects. Can be inverted to only
-preserve objects that do not have the property set.
-
-The `is-set` filter has the following parameters:
-
-* `property`: a property name, objects in the result set that have the
-  property with this name set are preserved, all other objects are
-  dropped;
-* `inverted` (optional): `true` or `false`, if set to `true` it will
-  cause objects that have the property set to be dropped rather than
-  preserved.
-
-#### The `is-equal` filter
-
-Preserves only those objects in the result set that have a given
-property set to a specific value; drops all other objects. Can be
-inverted to only preserve objects that either do not have the property
-set at all or have it set to a different value.
-
-The `is-equal` filter has the following parameters:
-
-* `property`: a property name,
-* `value`: a property value (anything from a number or a string to a
-  list or a dictionary), all objects that have the property with the
-  given name set to exactly this value are preserved, all other objects
-  are dropped from the result set;
-* `inverted` (optional): `true` or `false`, if set to `true` it will
-  cause objects that have the given property set to the provided value
-  to be dropped rather than preserved.
-
-#### The `contains` filter
-
-Preserves only those objects in the result set that have a given
-property set to include a specific value; drops all other objects. Can
-be inverted to only preserve objects that either do not include the
-value in the given property.
-
-This filter is particularly useful to check to filter out objects that
-have a list property that includes a particular value or object
-reference. It can also be used to filter out objects that have a
-string property that includes a particular substring.
-
-The `contains` filter has the following parameters:
-
-* `property`: a property name,
-* `value`: a property value (anything from a number or a string to a
-  list or a dictionary, e.g. an object reference), all objects that
-  whose property with the given name includes the value are preserved,
-  all other objects are dropped from the result set;
-* `inverted` (optional): `true` or `false`, if set to `true` it will
-  cause objects that have the given property set to include the
-  provided value to be dropped rather than preserved.
-
-#### The `match` filter
-
-Causes regular expression matching to be performed against a given
-property and preserves only those objects in the result set whose
-property matches the expression. Can be inverted to drop these
-objects and only preserve objects whose property does not match
-the expression.
-
-The `match` filter has the following parameters:
-
-* `property`: a property name,
-* `regex`: a regular expression, all objects whose property with the
-  given name matches this expression are preserved, all other objects
-  are dropped from the result set;
-* `inverted` (optional): `true` or `false`, if set to `true` it will
-  cause objects whose property with the given name matches the
-  expression to be dropped rather than preserved.
-
-#### The `properties` filter
-
-This filter allows to narrow down the object properties included in the
-result. By default, the result set includes the objects with all their
-properties. If only some of these properties are relevant, the
-`properties` filter can be used to only select these and drop all other
-properties from the result.
-
-This filter can be inverted to excluded the given properties from the
-result.
-
-The `properties` filter has the following parameters:
-
-* `properties`: a list of property names;
-* `inverted`: `true` or `false`, if set to `true` it will cause the
-  given properties to be excluded from the result rather than being
-  included.
-
-Note: If a `properties` filter that drops a particular property is
-followed by e.g. an `is-set` or `matches` filter operating against
-the same property, then that second filter will behave as if the
-property wasn't set or didn't exist. It is thus recommended to be
-careful about reducing properties mid-query and ideally only use
-this filter at the end of the filter pipeline. But even then, the
-filter may have an unexpected impact if the result of a query is
-referenced or re-used in another query.
-
-#### The `changes` filter
-
-...
+### `POST /refs/:ref/objects/:uuid/query`
 
 ## Streaming API
 
