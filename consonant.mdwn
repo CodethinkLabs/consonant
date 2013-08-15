@@ -1965,37 +1965,48 @@ output format and the actual query web API.
 
 ### Query graph
 
-The graph of a Consonant store consists of two types of nodes, *commit
-nodes* and *object nodes*, both of have properties pointing to the
-underlying commits and objects as well as other nodes. The connections
-between nodes are not expressed via explicit edge elements but via
-properties that reference other nodes.
+The graph of a Consonant store consists of three types of nodes, *commit
+nodes*, *class nodes* and *object nodes*, all of which have properties
+pointing to the underlying commits, classes and objects as well as
+other nodes. Instead of having explicit edge elements in the graph,
+connections between nodes are expressed via properties that reference
+other nodes.
 
 *Commit nodes* each represent a commit in the store. There are as many
 commit nodes as there are commits in the store. Each commit node has
 the following properties:
 
-* `id`: a canonical identifier of the form
-  `[<store UUID>].<commit SHA1>`;
+* `path`: a unique node path (see the *Node paths* section);
 * `commit`: the commit represented by the commit node;
 * `parents`: a list of references to the commit nodes representing
   the parent commits of the commit represented by the node itself,
   with the left parent node reference, if present, coming first;
   `parents` may be empty if the commit has no parents;
+* `classes`: a set of references to all class nodes representing
+  classes in the commit represented by the commit node.
 * `objects`: a set of references to all object nodes representing
   objects in the commit represented by the commit node.
 
-*Object nodes* each represent object at a specific commit. There is
-one object node for each object in each commit of the store. While the
-underlying objects may be present in various commits, object nodes
-only exist once in the graph. Each object node has the following
-properties:
+*Class nodes* each represent an object class at a specific commit of
+a store. There is one class node for each class directory in each
+commit of the store. Each class node has the following properties:
 
-* `id`: a canonical identifier of the form
-  `[<store UUID>].<commit SHA1>.<object UUID>`;
+* `path`: a unique node path (see the *Node paths section);
+* `commit`: a reference to the commit node of the commit the class
+  directory was loaded from;
+* `objects`: a set of references to all objects in the class at the
+  commit the class directory was loaded from.
+
+*Object nodes* each represent an object at a specific commit of a
+store. There is one object node for each object in each commit of
+the store. While the underlying objects may be present in various
+commits, object nodes only exist once in the graph. Each object
+node has the following properties:
+
+* `path`: a unique node path (see the *Node paths* section);
 * `object`: the object represented by the object node;
 * `commit`: a reference to the commit node of the commit the object
-  was loaded from.
+  was loaded from;
 * another property `X` for each reference or reference list property
   `X` of the represented object, with references to the nodes
   corresponding to the objects referenced to via `X`.
@@ -2026,9 +2037,9 @@ or as JSON. The query language itself specifies:
   properties, for terminating traversals and filtering results.
 
 Queries consists of a name and either a *set filter* or a
-*graph traversal*, the query body. Queries are defined as a YAML/JSON
-key/value pair, where the name is the key and the query body is
-the value:
+*arbitrary-depth graph traversal*, the query body. Queries are
+defined as a YAML/JSON key/value pair, where the name is the key
+and the query body is the value:
 
     <query name>:
         <query body>
@@ -2041,14 +2052,58 @@ nodes in the graph.
 
 Node paths are defined as follows:
 
-+--------------------------------+-------------------------------------------------------+
-| **Path**                       | **Meaning**                                           |
-+--------------------------------+-------------------------------------------------------+
-|     [<store>]                  |                                                       |
-|     [<store>].[<ref>]          |                                                       |
-|     [<store>].[<ref>].<uuid>   |                                                       |
-|     [<store>].[<ref>].<uuid>   |                                                       |
-+--------------------------------+-------------------------------------------------------+
+* `[<store uuid>]`: refers to all commit nodes in the store with the
+  given UUID;
+* `[<store uuid>].[<sha1>]`: refers to the commit node for the commit
+  with the given SHA1 in the store with the given UUID;
+* `[<store uuid>].[<sha1>]`.classes: refers to all class nodes for the
+  commit node for the commit with the given SHA1 in the store with
+  the given UUID;
+* `[<store uuid>].[<sha1>].classes.<name>`: refers to the class node
+  for the given class name and commit node for the commit with the
+  given SHA1 in the store with the given UUID;
+* `[<store uuid>].[<sha1>].objects`: refers to all object nodes for the
+  commit node for the commit with the given SHA1 in the store with the
+  given UUID;
+* `[<store uuid>].[<sha1>].objects.<uuid>`: refers to the object node
+  with the given UUID of the commit node for the given ref/sha1 in
+  the store with the given store UUID.
+
+In addition, there are ambiguous node paths for refering to commits,
+class and objects pointed to by a Git ref:
+
+* `[<store uuid>].[<ref>]`: refers to all object nodes of the commit
+  node of the given Git ref in the store with the given UUID;
+* `[<store uuid>].[<ref>]`.classes: refers to all class nodes of the
+  commit node for the given Git ref in the store with the given UUID;
+* `[<store uuid>].[<sha1>].classes.<name>`: refers to the class node
+  for the given class name and commit node for the commit with the
+  given SHA1 in the store with the given UUID;
+* `[<store uuid>].[<sha1>].objects`: refers to all object nodes for
+  the commit node for the given Git ref in the store with the given
+  store UUID.
+* `[<store uuid>].[<sha1>].objects.<uuid>`: refers to the object node
+  with the given UUID for the commit node for the given Git ref in
+  the store with the given store UUID.
+
+### Query root
+
+Every query has a root. This is always a set of nodes or a single node
+(e.g. a commit node, class node or object node) derived from a query
+root node path that is either explicitly provided by the entity
+submitting the query or implicitly derived from things like the
+URL or method the query is submitted to.
+
+#### Fixed depth graph traversal
+
+TODO Describe the whole `name.[name]+` way of traversing the query
+graph, e.g.
+
+    root.commit.parents.0
+    [HEAD].classes.lane
+    <var>.cards.assignees
+
+etc.
 
 #### Set filters
 
@@ -2062,7 +2117,7 @@ Set filters are dictionaries with the following fields:
 
 * `yield`: an expression
 
-    # lanes
+    \# lanes
     lanes:
       yield: lane.foo
       for: lane
@@ -2073,7 +2128,7 @@ Set filters are dictionaries with the following fields:
           property: class
           value: lane
 
-    # cards in wishlist
+    \# cards in wishlist
     wishlist-cards:
       yield: lane.cards
       for: lane
@@ -2084,7 +2139,9 @@ Set filters are dictionaries with the following fields:
           property: title
           value: Wishlist
 
-    # all commits that changed f175f170-1d84-4123-93ba-8e3578697734
+#### Arbitrary-depth graph traversals
+
+    \# all commits that changed f175f170-1d84-4123-93ba-8e3578697734
     history:
       yield: commit
       for: commit
@@ -2104,7 +2161,7 @@ Set filters are dictionaries with the following fields:
 
 
 
-    # lanes
+    \# lanes
     lanes:
       select: lane
       variable: lane
@@ -2112,7 +2169,7 @@ Set filters are dictionaries with the following fields:
         - [HEAD].objects
       filter: lane.class == "lane"
 
-    # cards in wishlist
+    \# cards in wishlist
     wishlist-cards:
       select: lane.cards
       variable: lane
@@ -2120,7 +2177,7 @@ Set filters are dictionaries with the following fields:
         - lanes
       filter: "wishlist" in l.title
 
-    # cards in backlog
+    \# cards in backlog
     backlog-cards:
       select: lane.cards
       variable: lane
@@ -2128,13 +2185,13 @@ Set filters are dictionaries with the following fields:
         - lanes
       filter: "backlog" in l.title
 
-    # cards in both wishlist and backlog
+    \# cards in both wishlist and backlog
     todo-cards:
       sets:
         - wishlist-cards
         - backlog-cards
 
-    # all commits that changed f175f170-1d84-4123-93ba-8e3578697734
+    \# all commits that changed f175f170-1d84-4123-93ba-8e3578697734
     history:
       select: commit
       variable: commit
