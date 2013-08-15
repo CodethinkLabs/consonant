@@ -106,6 +106,12 @@ de-duplication, offline work and authorship information out of the box,
 whereas with other databases you would have to implement a lot of this
 yourself.
 
+## Offline stores
+
+TODO
+
+Describe the importance of being able to take stores off-line.
+
 ## Terminology
 
 This specification aims to use consistent terms for the different
@@ -1990,8 +1996,152 @@ properties:
 * `object`: the object represented by the object node;
 * `commit`: a reference to the commit node of the commit the object
   was loaded from.
+* another property `X` for each reference or reference list property
+  `X` of the represented object, with references to the nodes
+  corresponding to the objects referenced to via `X`.
 
-### Query langauge
+Where the original objects and the references between them can be
+thought of as a regular directed graph or *data graph*, the
+*query graph* can be thought of as adding another layer on top with
+references back down into the data graph via the `object` property
+of object nodes.
+
+Note: query graphs are only created per-store. In theory, the graphs
+of any related set of stores could be combined into a single graph
+by connecting object nodes according to their cross-store
+references. The responsibility to establish a single graph for
+connected stores is, however, left to clients in order to keep the
+server-side handling of queries simple.
+
+### Query language
+
+The query language is a simple language designed specifically for
+traversing the query graph and extracting subsets of its nodes.  Like
+everything else in Consonant, queries can be expressed either as YAML
+or as JSON. The query language itself specifies:
+
+* a combination of valid YAML/JSON expressions,
+* a node path syntax for uniquely addressing nodes and node sets, and
+* a set of boolean filters to operate on node attributes and object
+  properties, for terminating traversals and filtering results.
+
+Queries consists of a name and either a *set filter* or a
+*graph traversal*, the query body. Queries are defined as a YAML/JSON
+key/value pair, where the name is the key and the query body is
+the value:
+
+    <query name>:
+        <query body>
+
+#### Node paths
+
+A key concept in both, set filters and graph traversals, are node
+paths. They provide a way of uniquely addressing nodes and sets of
+nodes in the graph.
+
+Node paths are defined as follows:
+
++--------------------------------+-------------------------------------------------------+
+| **Path**                       | **Meaning**                                           |
++--------------------------------+-------------------------------------------------------+
+|     [<store>]                  |                                                       |
+|     [<store>].[<ref>]          |                                                       |
+|     [<store>].[<ref>].<uuid>   |                                                       |
+|     [<store>].[<ref>].<uuid>   |                                                       |
++--------------------------------+-------------------------------------------------------+
+
+#### Set filters
+
+A set filter takes a list of input node sets and returns a set of
+nodes based on the union of the input sets. The resulting nodes
+stem either directly from the input sets or from a uniform fixed
+depth traversal of the graph starting at the nodes from the input
+sets.
+
+Set filters are dictionaries with the following fields:
+
+* `yield`: an expression
+
+    # lanes
+    lanes:
+      yield: lane.foo
+      for: lane
+      in:
+        - [HEAD].objects
+      if:
+        - filter: equals
+          property: class
+          value: lane
+
+    # cards in wishlist
+    wishlist-cards:
+      yield: lane.cards
+      for: lane
+      in:
+        - lanes
+      if:
+        - filter: contains
+          property: title
+          value: Wishlist
+
+    # all commits that changed f175f170-1d84-4123-93ba-8e3578697734
+    history:
+      yield: commit
+      for: commit
+      from: f175f170-1d84-4123-93ba-8e3578697734.commit
+      via: commit.parents.0
+      until:
+        - filter: contains
+          property: commit.objects
+          value:
+            uuid: f175f170-1d84-4123-93ba-8e3578697734
+          inverted: true
+      if:
+        - filter: contains
+          property: commit.commit.changes
+          value:
+            uuid: f175f170-1d84-4123-93ba-8e3578697734
+
+
+
+    # lanes
+    lanes:
+      select: lane
+      variable: lane
+      sets:
+        - [HEAD].objects
+      filter: lane.class == "lane"
+
+    # cards in wishlist
+    wishlist-cards:
+      select: lane.cards
+      variable: lane
+      sets:
+        - lanes
+      filter: "wishlist" in l.title
+
+    # cards in backlog
+    backlog-cards:
+      select: lane.cards
+      variable: lane
+      sets:
+        - lanes
+      filter: "backlog" in l.title
+
+    # cards in both wishlist and backlog
+    todo-cards:
+      sets:
+        - wishlist-cards
+        - backlog-cards
+
+    # all commits that changed f175f170-1d84-4123-93ba-8e3578697734
+    history:
+      select: commit
+      variable: commit
+      start: f175f170-1d84-4123-93ba-8e3578697734.commit
+      next: commit.parents.0
+      until: f175f170-1d84-4123-93ba-8e3578697734 not in commit
+      filter: f175f170-1d84-4123-93ba-8e3578697734 in commit.commit.changes
 
 ### `POST /query`
 
