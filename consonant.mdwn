@@ -1966,15 +1966,15 @@ output format and the actual query web API.
 ### Query graph
 
 The graph of a Consonant store consists of three types of nodes, *commit
-nodes*, *class nodes* and *object nodes*, all of which have properties
+nodes*, *class nodes* and *object nodes*, all of which have attributes
 pointing to the underlying commits, classes and objects as well as
 other nodes. Instead of having explicit edge elements in the graph,
-connections between nodes are expressed via properties that reference
+connections between nodes are expressed via attributes that reference
 other nodes.
 
 *Commit nodes* each represent a commit in the store. There are as many
 commit nodes as there are commits in the store. Each commit node has
-the following properties:
+the following attributes:
 
 * `path`: a unique node path (see the *Node paths* section);
 * `commit`: the commit represented by the commit node;
@@ -1989,7 +1989,7 @@ the following properties:
 
 *Class nodes* each represent an object class at a specific commit of
 a store. There is one class node for each class directory in each
-commit of the store. Each class node has the following properties:
+commit of the store. Each class node has the following attributes:
 
 * `path`: a unique node path (see the *Node paths section);
 * `commit`: a reference to the commit node of the commit the class
@@ -2001,20 +2001,20 @@ commit of the store. Each class node has the following properties:
 store. There is one object node for each object in each commit of
 the store. While the underlying objects may be present in various
 commits, object nodes only exist once in the graph. Each object
-node has the following properties:
+node has the following attributes:
 
 * `path`: a unique node path (see the *Node paths* section);
 * `object`: the object represented by the object node;
 * `commit`: a reference to the commit node of the commit the object
   was loaded from;
-* another property `X` for each reference or reference list property
+* another attributes `X` for each reference or reference list property
   `X` of the represented object, with references to the nodes
   corresponding to the objects referenced to via `X`.
 
 Where the original objects and the references between them can be
 thought of as a regular directed graph or *data graph*, the
 *query graph* can be thought of as adding another layer on top with
-references back down into the data graph via the `object` property
+references back down into the data graph via the `object` attribute
 of object nodes.
 
 Note: query graphs are only created per-store. In theory, the graphs
@@ -2086,24 +2086,44 @@ class and objects pointed to by a Git ref:
   with the given UUID for the commit node for the given Git ref in
   the store with the given store UUID.
 
-### Query root
+#### Query root
 
 Every query has a root. This is always a set of nodes or a single node
-(e.g. a commit node, class node or object node) derived from a query
+(e.g. a commit node, class node or object node) addressed by a query
 root node path that is either explicitly provided by the entity
 submitting the query or implicitly derived from things like the
 URL or method the query is submitted to.
 
-#### Fixed depth graph traversal
+#### Fixed-depth graph traversal
 
-TODO Describe the whole `name.[name]+` way of traversing the query
-graph, e.g.
+Starting from either a node path or a specific node, fixed-depth graph
+traversals provide a way to recursively follow references to other
+nodes up to a limited depth. This is a key feature to make filtering
+and traversal termination conditions in set filters and arbitrary-depth
+graph traversals powerful enough to be useful.
 
-    root.commit.parents.0
-    [HEAD].classes.lane
-    <var>.cards.assignees
+The syntax for fix-depth graph traversals follows the same structure
+as node paths: segments separated by dots. Any fixed-depth graph
+traversal expression is composed of two parts:
 
-etc.
+1. a node path or variable name (see *Set filters* and
+   *Arbitrary-depth graph traversals* for more information about
+   variables),
+2. an optional, mixed sequence of node attribute names and numeric
+   indices, separated by dots.
+
+Examples:
+
+* `root.commit.parents.0`: starting from the query root node (`root`),
+  follows the reference to its commit node, then the parent commit
+  nodes of that commit and returns the first parent commit node;
+* `foo.cards.assignees`: starting from a node represented by a variable
+  named `foo`, follows the node references in its `cards` attribute,
+  then returns the nodes referenced by the `assignees` attribute of all
+  the `cards` nodes;
+* `[HEAD].classes.lane`: a node path only traversal selecting the class
+  node for `lane` class relative to the commit node for the commit
+  pointed to by the Git ref `HEAD`.
 
 #### Set filters
 
@@ -2113,108 +2133,138 @@ stem either directly from the input sets or from a uniform fixed
 depth traversal of the graph starting at the nodes from the input
 sets.
 
-Set filters are dictionaries with the following fields:
+Set filters are defined as dictionaries with the following fields:
 
-* `yield`: an expression
+* `yield`: a fixed-depth graph traversal specifying a node or a set
+  of nodes to put into the result,
+* `for`: a variable name,
+* `in`: input sets defined via a mixed list of fixed-depth graph
+  traversals and names of other named queries,
+* `if` (optional): a list of boolean filters to filter out nodes
+  assigned to the variable defined in `for` before they are passed to
+  `yield` (see *Filters* for more information about filters).
 
-    \# lanes
-    lanes:
-      yield: lane.foo
+**Example:** Obtain a set of all object nodes for objects of the
+class `lane` that have a non-empty set of cards:
+
+    non-empty-lanes:
+      yield: lane
       for: lane
       in:
-        - [HEAD].objects
+        - [HEAD].classes.lane.objects
       if:
-        - filter: equals
-          property: class
-          value: lane
+        - filter: is-set
+          attribute: lane.cards
 
-    \# cards in wishlist
-    wishlist-cards:
+**Example:** Obtain a set of all object nodes that represent cards in
+the lane with the title "Backlog". The input set here is the result of
+the previous example query (`non-empty-lanes`):
+
+    backlog-cards:
       yield: lane.cards
       for: lane
       in:
-        - lanes
+        - non-empty-lanes
       if:
-        - filter: contains
-          property: title
-          value: Wishlist
+        - filter: equals
+          property: lane.title
+          value: Backlog
 
 #### Arbitrary-depth graph traversals
 
-    \# all commits that changed f175f170-1d84-4123-93ba-8e3578697734
+An arbitrary-depth graph traversal takes a single node and repeatedly
+applies a fixed-depth graph traversal until a condition terminates the
+traversal. The final result is determined via a fixed-depth traversal
+starting from each node that is reached in the recursive traversal,
+minus those nodes filtered out using a set of filters.
+
+Arbitrary-depth graph traversals are defined as dictionaries with the
+following fields:
+
+* `yield`: a fixed-depth graph traversal specifying a node or a set of
+  nodes to put into the result,
+* `for`: a variable name,
+* `from`: a fixed-depth graph traversal specifying the root of the
+  arbitrary-depth graph traversal,
+* `via`: a fixed-depth graph traversal specifying the recursion
+  traversal,
+* `until`: a list of boolean filters that terminate the traversal if
+  they are all true at the same time,
+* `if` (optional): a list of boolean filters to filter out nodes
+  assigned to the variable defined in `for` before they are passed
+  to `yield` (see *Filters* for more information about filters).
+
+**Example:** Starting from the Git ref `HEAD`, obtain all commit nodes
+for commits since the object with the UUID
+`f175f170-1d84-4123-93ba-8e3578697734` was created:
+
     history:
       yield: commit
       for: commit
-      from: f175f170-1d84-4123-93ba-8e3578697734.commit
+      from: [HEAD]
       via: commit.parents.0
       until:
         - filter: contains
-          property: commit.objects
-          value:
-            uuid: f175f170-1d84-4123-93ba-8e3578697734
+          attribute: commit.objects
+          nodes:
+            - [HEAD].objects.f175f170-1d84-4123-93ba-8e3578697734
           inverted: true
+
+**Example:** Starting from the Git ref `HEAD`, obtain all commit nodes
+for commits that changed the object with the UUID
+`f175f170-1d84-4123-93ba-8e3578697734` since that object was created:
+
+    history:
+      yield: commit
+      for: commit
+      from: [HEAD]
+      via: commit.parents.0
+      until:
+        - filter: contains
+          attribute: commit.objects
+          nodes:
+            - [HEAD].objects.f175f170-1d84-4123-93ba-8e3578697734
       if:
         - filter: contains
-          property: commit.commit.changes
+          property: commit.changes
           value:
             uuid: f175f170-1d84-4123-93ba-8e3578697734
 
+#### Boolean filters
 
-
-    \# lanes
-    lanes:
-      select: lane
-      variable: lane
-      sets:
-        - [HEAD].objects
-      filter: lane.class == "lane"
-
-    \# cards in wishlist
-    wishlist-cards:
-      select: lane.cards
-      variable: lane
-      sets:
-        - lanes
-      filter: "wishlist" in l.title
-
-    \# cards in backlog
-    backlog-cards:
-      select: lane.cards
-      variable: lane
-      sets:
-        - lanes
-      filter: "backlog" in l.title
-
-    \# cards in both wishlist and backlog
-    todo-cards:
-      sets:
-        - wishlist-cards
-        - backlog-cards
-
-    \# all commits that changed f175f170-1d84-4123-93ba-8e3578697734
-    history:
-      select: commit
-      variable: commit
-      start: f175f170-1d84-4123-93ba-8e3578697734.commit
-      next: commit.parents.0
-      until: f175f170-1d84-4123-93ba-8e3578697734 not in commit
-      filter: f175f170-1d84-4123-93ba-8e3578697734 in commit.commit.changes
+TODO
 
 ### `POST /query`
 
+TODO
+
 ### `POST /classes/:class/query`
+
+TODO
 
 ### `POST /classes/:class/objects/:uuid/query`
 
+TODO
+
 ### `POST /objects/:uuid/query`
+
+TODO
 
 ### `POST /refs/:ref/query`
 
+TODO
+
 ### `POST /refs/:ref/classes/:class/query`
+
+TODO
 
 ### `POST /refs/:ref/classes/:class/objects/:uuid/query`
 
+TODO
+
 ### `POST /refs/:ref/objects/:uuid/query`
+
+TODO
 
 ## Streaming API
 
