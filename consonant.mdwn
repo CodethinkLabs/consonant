@@ -108,9 +108,15 @@ yourself.
 
 ## Offline stores
 
-TODO
+An important aspect of Consonant is the ability to make object stores
+and web services around them available locally. Offline work scenarios
+are relevant in a professional/business and distributed work context
+in particular, where users are traveling or offline a lot but still
+want to be able to do work.
 
-Describe the importance of being able to take stores off-line.
+Via Git repositories, schema and store UUIDs and the Consonant register,
+Consonant provides a way to link stores and services together flexibly,
+no matter whether they are running remotely or locally.
 
 ## Terminology
 
