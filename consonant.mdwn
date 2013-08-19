@@ -27,8 +27,6 @@
   the class, the object in the class or the property that you've asked
   for.
 * Do we want to support pagination when requesting a lot of objects?
-* The mandatory `content-type` property for attachment meta data is not
-  not documented yet.
 * Commit "objects" currently have no information about what objects
   they changed in what way. And in the query language we don't have a
   way to e.g. check whether an object was changed in a commit yet.
@@ -147,8 +145,7 @@ sections are:
 * schemas and schema references,
 * classes,
 * objects,
-* properties,
-* attachments.
+* properties.
 
 ## Store repository
 
@@ -199,10 +196,8 @@ the store's data. The following elements are present in a tree:
    `/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/`).
 4. One `properties.yaml` file in each object directory, storing the
    properties of the object.
-5. An optional `attachments/` directory inside each object directory,
-   holding arbitrary attachments in pairs of `attachments/<name>` and
-   `attachments/.<name>.yaml` files, the latter storing attachment meta
-   data.
+5. An optional `raw/` directory inside each object directory, holding
+   the data of raw object properties.
 
 ### Example tree
 
@@ -219,11 +214,9 @@ This is how an example tree for a simple kanban system could look like:
     card/
         0cca0d5f-25a2-4b2f-a8ad-7f647aedb2df/
             properties.yaml                   # number: 129
-            attachments/
-                foo.txt
-                .foo.txt.yaml
-                bar.png
-                .bar.png.yaml
+            raw/
+                foo
+                bar
         .f59d7c0b-ddac-429d-820b-9867794a9a93/
             properties.yaml                   # number: 483
 
@@ -312,7 +305,8 @@ so-called properties. They come in three variants:
 
 1. a special property to hide objects,
 2. properties specified by schemas and set in `properties.yaml` files,
-3. arbitrary data properties called *attachments*.
+3. raw properties whose content type is stored in `properties.yaml` and
+   whose data is stored in `raw/<property name>`.
 
 ### Hidden objects
 
@@ -363,46 +357,41 @@ to objects of the class `card`).
         - uuid: 1b1f1146-72c5-4890-9501-068ddb0560be
         - uuid: 2066c664-a8fe-494f-bddf-756be267fb3c
 
-### The `attachments` directory
+### The `raw` directory
 
-In addition to regular properties that are defined in schemas, each
-object may store arbitrary properties called *attachments*. These are
-stored as pairs of files in an `attachments/` subdirectory inside the
-object directory (e.g.
-`/card/3652ccf3-0aa3-4974-88a3-37cd8b74a270/attachments/`).
+Raw properties are special object properties that may hold arbitrary,
+loosely validated data. They are intended for things such as binary
+data and arbitrary files uploaded by users.
 
-Attachments consist of a name (e.g. `comments` or `mockup.png`),
-the actual data and arbitrary YAML meta data. All this is stored in
-the `attachments/` directory as follows:
+Raw properties consist of two elements:
 
-1. `attachments/NAME`: holds the attachment data,
-2. `attachments/.NAME.yaml`: holds the attachment meta data,
+1. a content type, stored under the property name in `properties.yaml`,
+2. the raw property data, stored in a file named after the property
+   in the `raw/` subdirectory inside the object directory.
 
-where `NAME` is the name of the attachment. Attachment names may
-not start with a dot and may not contain slashes. Unlike object
-properties that are validated via Consonant schemas, there is no
-defined validation scheme for attachment meta data. This is entirely
-left up to applications built with Consonant.
+As part of the validation process, Consonant implementations are
+required to verify that the content type stored in `properties.yaml`
+follows the
+[Internet media type](http://en.wikipedia.org/wiki/Internet_media_type)
+format. The content types are, however, not required to refer to
+existing types. This allows for applications-specific types to be
+used.
 
-#### Example `attachments` directory
+#### Example `raw` directory
 
-The following example shows a hypothetical listing of an attachments
-directory for issue `6031` in a bug tracker:
+Assume we were to create a store for an issue tracker, with a class
+`issue` for representing bugs and a class `attachment` to represent
+bug attachments uploaded by users. The `properties.yaml` of an example
+attachment (e.g. `/attachment/76655bcd-576c-4aad-8337-1200dfe005f6`)
+could look as follows:
 
-    /issue/5d4c394d-cb88-4d98-954f-85f17fe51948/attachments/
-        patch-v1.patch
-        .patch-v1.patch.yaml
-        patch-v2.patch
-        .patch-v2.patch.yaml
+    title: Patch to fix bug #9583
+    data: text/plain
 
-The YAML meta data in `.patch-v1.patch.yaml` could look like this:
+In this example, `data` is a raw property. Its value would be stored
+in the following file:
 
-    description: |
-        This patch is a first attempt at fixing issue 6031.
-        It is caused by accidently overwriting the value of
-        `foo` in the for loop in `bla.c`.
-    patch: true
-    content-type: text/plain
+    /attachment/76655bcd-576c-4aad-8337-1200dfe005f6/raw/data
 
 ## UUIDs
 
@@ -585,6 +574,9 @@ The following table lists all data types supported by Consonant schemas.
 +-------------+-------------------------------------------------------------+
 | text        | Data type for arbitrary text. Whitespace is preserved.      |
 +-------------+-------------------------------------------------------------+
+| raw         | Data type for raw data that is loosely typed via a          |
+|             | content type.                                               |
++-------------+-------------------------------------------------------------+
 | reference   | Data type for references to other objects, either in the    |
 |             | same or a different Consonant store.                        |
 +-------------+-------------------------------------------------------------+
@@ -754,6 +746,58 @@ preserved by the store. If a `regex` validation rule is defined, the
 value of the text property must in addition satisfy the given regular
 expression.
 
+### Properties of type `raw`
+
+#### Definition
+
+Raw properties are defined in schemas as follows:
+
+    <name>:
+        type: raw
+
+They may optionally include a regular expression as a validation
+requirement for the content type of values stored in the raw property:
+
+    <name>:
+        type: text
+        content-type-regex: <regular expression>
+
+#### Usage
+
+Assume we were to define a Consonant schema for a kanban system that
+includes cards with a title and a list of arbitrary attachments:
+The schema for this might look as follows:
+
+    uuid: org.yourproject.kanban.schema.1
+    classes:
+        card:
+            properties:
+                title:
+                    type: text
+                attachments:
+                    type: list
+                    elements:
+                        type: reference
+                        class: attachment
+        attachment:
+            properties:
+                data:
+                  type: raw
+
+Attachment objects in the store would now have `properties.yaml` files
+like the following:
+
+    data: image/png
+
+In addition to this, there would be a `raw` subdirectory in the object
+directory of the attachments in the store with a file called `data`.
+
+#### Values
+
+Raw properties can store arbitrary data. If a `content-type-regex`
+validation rule is defined, the content type stored in
+`properties.yaml` must match this regular expression.
+
 ### Properties of type `list`
 
 #### Definition
@@ -772,8 +816,9 @@ One example would be a list of strings:
         elements:
             type: string
 
-Lists may not be nested, meaning that the allowed element types are
-limited to `boolean`, `int`, `float`, `text` and `reference`.
+Lists may not be nested and may not contain elements of type `raw`,
+meaning that the allowed element types are limited to `boolean`, `int`,
+`float`, `text` and `reference`.
 
 Lists are required to always contain at least one element. The
 `optional` flag can be used to define list properties that may be empty
@@ -1072,10 +1117,9 @@ Second, the same request using JSON:
 ## Basic API
 
 The basic Consonant web API includes a set of `GET` methods to retrieve
-the schema used by the underlying store, classes, objects, properties,
-attachments and Git refs such as branches and tags. It also includes a
-`POST` method to modify objects in the store in the form of
-transactions.
+the schema used by the underlying store, classes, objects, properties
+and Git refs such as branches and tags. It also includes a `POST`
+method to modify objects in the store in the form of transactions.
 
 ### `GET /schema`
 
@@ -1108,7 +1152,7 @@ Returns a YAML or JSON dictionary mapping the names of all classes
 available in the store to some meta data, including:
 
 * the number of objects of the class,
-* ...?
+* TODO...?
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/classes                              |
@@ -1141,10 +1185,11 @@ Like `GET /classes` but fetches the meta data for a single class only.
 
 ### `GET /classes/:class/objects`
 
-Fetches all objects of a given class, including their properties and
-attachment names. The response does not include any attachment meta
-data or content. Object references are not resolved recursively; this
-is the responsibility of the client.
+Fetches all objects of a given class, including their properties. The
+response does not include the full data of raw properties but returns
+links to accessing the raw property data instead, which can then be
+used to e.g. embed image data in a web browser. Object references are
+not resolved recursively; this is the responsibility of the client.
 
 The objects of the class are returned as a list of dictionaries.
 
@@ -1159,8 +1204,8 @@ The objects of the class are returned as a list of dictionaries.
 |                      |         comments:                                               |
 |                      |           - uuid: e96dcdf9-fd5f-4e66-af73-58db9ee15701          |
 |                      |           - uuid: b7dbfd80-8afd-44a7-a636-f69c5a9fe517          |
-|                      |       attachments:                                              |
-|                      |         - screenshot.png                                        |
+|                      |         attachments:                                            |
+|                      |           - uuid: b3d94ccd-0e0c-4f9f-8a6b-c01327a70336          |
 |                      |     - uuid: 445bf6d4-6dd2-4817-a657-27329b5fbff8                |
 |                      |       class: card                                               |
 |                      |       hidden: false                                             |
@@ -1177,16 +1222,16 @@ class does not exist or if the object UUID does not refer to an object
 of the given class.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
-|                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca                  |
+| **Example request**  |     GET /consonant/api/1.0/classes/attachment/objects/...       |
+|                      |           b3d94ccd-0e0c-4f9f-8a6b-c01327a70336                  |
 +----------------------+-----------------------------------------------------------------+
-| **Example response** |     class: lane                                                 |
+| **Example response** |     class: attachment                                           |
 |                      |     hidden: false                                               |
 |                      |     properties:                                                 |
-|                      |       title: Backlog                                            |
-|                      |       cards:                                                    |
-|                      |         - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29            |
-|                      |         - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000            |
+|                      |       title: Patch that might fix the issue                     |
+|                      |       data: /consonant/api/1.0/objects/...                      |
+|                      |               b3d94ccd-0e0c-4f9f-8a6b-c01327a70336/...          |
+|                      |               properties/data                                   |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /classes/:class/objects/:uuid/properties`
@@ -1214,6 +1259,12 @@ does not exist, if the object UUID does not refer to an object of the
 given class or if a property with the given name does not exist in the
 class.
 
+When accessing raw properties, the response will have the
+`Content-Type` header set to what is stored under the name of the
+property in the `properties.yaml` file of the object. This allows
+for direct embedding of raw property data in clients such as
+browsers.
+
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
 |                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca/...              |
@@ -1222,54 +1273,11 @@ class.
 | **Example response** |     Backlog                                                     |
 +----------------------+-----------------------------------------------------------------+
 
-### `GET /classes/:class/objects/:uuid/attachments`
-
-Takes a class name and an object UUID and returns a dictionary mapping
-the names of all attachments of the corresponding objec to their meta
-data.
-
-+----------------------+-----------------------------------------------------------------+
-| **Example request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
-|                      |           ccb920a2-810a-4264-b022-d92f36f849bf/...              |
-|                      |           attachments                                           |
-+----------------------+-----------------------------------------------------------------+
-| **Example response** |     screenshot.png:                                             |
-|                      |       content-type: image/png                                   |
-|                      |       properties:                                               |
-|                      |         description: Screenshot of the bug.                     |
-+----------------------+-----------------------------------------------------------------+
-
-### `GET /classes/:class/objects/:uuid/attachments/:name`
-
-Takes a class name, an object UUID and an attachment name and returns
-the meta data for the attachment. Returns a 404 if the class does not
-exist, if the object UUID does not refer to an object of the given
-class or if no attachment with the given name exists for the object.
-
-+----------------------+-----------------------------------------------------------------+
-| **Example request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
-|                      |           ccb920a2-810a-4264-b022-d92f36f849bf/...              |
-|                      |           attachments/screenshot.png                            |
-+----------------------+-----------------------------------------------------------------+
-| **Example response** |     content-type: image/png                                     |
-|                      |     properties:                                                 |
-|                      |       description: Screenshot of the bug.                       |
-+----------------------+-----------------------------------------------------------------+
-
-### `GET /classes/:class/objects/:uuid/attachments/:name/data`
-
-Takes a class name, an object UUID and an attachment name and returns
-the data of the attachment. The response has the `Content-Type` header
-set to the `content-type` of the attachment meta data. Returns a 404
-if the class does not exist, if the object UUID does not refer to an
-object of the given class or if no attachment with the given name
-exists for the object.
-
 ### `GET /objects`
 
-Returns all objects defined in the store, including their properties and
-attachment names. The response does not include any attachment meta data
-or content. Object references are not resolved recursively; this is the
+Returns all objects defined in the store, including their properties.
+The response does not include any attachment meta data or content.
+Object references are not resolved recursively; this is the
 responsibility of the client.
 
 The result is a dictionary that maps class names to lists of objects.
@@ -1286,8 +1294,6 @@ The result is a dictionary that maps class names to lists of objects.
 |                      |           cards:                                                |
 |                      |             - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29        |
 |                      |             - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000        |
-|                      |         attachments:                                            |
-|                      |           - screenshot.png                                      |
 |                      |       - uuid: dcb7a3e2-0da2-4ca9-befe-122ddd2b9ac2              |
 |                      |         class: lane                                             |
 |                      |         ...                                                     |
@@ -1299,9 +1305,9 @@ The result is a dictionary that maps class names to lists of objects.
 
 ### `GET /objects/:uuid`
 
-Takes an object UUID and returns the properties and attachment names
-for the corresponding object. Returns a 404 if the object UUID does not
-refer to an existing object in the store.
+Takes an object UUID and returns the properties for the corresponding
+object. Returns a 404 if the object UUID does not refer to an existing
+object in the store.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/objects/...                          |
@@ -1314,8 +1320,6 @@ refer to an existing object in the store.
 |                      |       cards:                                                    |
 |                      |         - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29            |
 |                      |         - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000            |
-|                      |     attachments:                                                |
-|                      |       - screenshot.png                                          |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /objects/:uuid/class`
@@ -1341,23 +1345,6 @@ requires no class name and only takes an object UUID.
 Like `GET /classes/:class/objects/:uuid/properties/:property` except
 that it requires no class name and only takes an object UUID and
 property name.
-
-### `GET /objects/:uuid/attachments`
-
-Like `GET /classes/:class/objects/:uuid/attachments` except that it
-requires no class name and only takes an object UUID.
-
-### `GET /objects/:uuid/attachments/:name`
-
-Like `GET /classes/:class/objects/:uuid/attachments/:name` except that
-it requires no class name and only takes an object UUID and attachment
-name.
-
-### `GET /objects/:uuid/attachments/:name/data`
-
-Like `GET /classes/:class/objects/:uuid/attachments/:name` except that
-it requires no class name and only takes an object UUID and attachment
-name.
 
 ### `GET /refs`
 
@@ -1467,17 +1454,11 @@ This means the methods
 * `GET /refs/:ref/classes/:class/objects/:uuid`
 * `GET /refs/:ref/classes/:class/objects/:uuid/properties`
 * `GET /refs/:ref/classes/:class/objects/:uuid/properties/:property`
-* `GET /refs/:ref/classes/:class/objects/:uuid/attachments`
-* `GET /refs/:ref/classes/:class/objects/:uuid/attachments/:name`
-* `GET /refs/:ref/classes/:class/objects/:uuid/attachments/:name/data`
 * `GET /refs/:ref/objects`
 * `GET /refs/:ref/objects/:uuid`
 * `GET /refs/:ref/objects/:uuid/class`
 * `GET /refs/:ref/objects/:uuid/properties`
 * `GET /refs/:ref/objects/:uuid/properties/:property`
-* `GET /refs/:ref/objects/:uuid/attachments`
-* `GET /refs/:ref/objects/:uuid/attachments/:name`
-* `GET /refs/:ref/objects/:uuid/attachments/:name/data`
 
 all provide the same interface as
 
@@ -1513,11 +1494,12 @@ including one or more actions, including
 
 * object creation and deletion,
 * object manipulation, and
-* object attachment creation, deletion and modification.
+* raw property manipulation.
 
 The multipart data is structured as a mix of YAML/JSON actions and parts
-with arbitrary content types for attachment data. Each transaction
-begins with a `begin` action and ends with a `commit` action.
+with arbitrary content types for manipulating raw properties. Each
+transaction begins with a `begin` action and ends with a `commit`
+action.
 
 It is mandatory for Consonant implementations to verify that
 transactions result in valid stores, i.e., stores that validate
@@ -1687,45 +1669,28 @@ title and assignee could look as follows:
     target: refs/heads/master
     ...
 
-#### Attachment creation, deletion and manipulation
+#### Raw property manipulation
 
-Attachments can be created, deleted and updated as part of any
-transaction. These actions are, however, different from regular object
-actions in that they usually come in the form of two parts:
+Raw properties can be updated and unset as part of any transaction.
+These actions are, however, different from regular object actions in
+that they usually come in the form of two parts:
 
-* The first part describes the type of action, the object UUID, the
-  attachment name and, optionally, meta data being changed.
-* The second part contains the actual attachment data. This part is
-  only valid for `create-attachment` and `update-attachment` actions
-  and is optional for `update-attachment` actions if only the
-  attachment meta data is being changed.
+* The first part describes the type of action, the object UUID and the
+  raw property name.
+* The second part contains the actual raw property data. This part is
+  only valid for the `update-attachment` action.
 
 The first part is a YAML or JSON segment of the form
 
     Content-Type: application/x-yaml
 
-    action: {create,delete,update}-attachment
+    action: {unset,update}-raw-property
     object: <uuid or action ID>
 
-with an optional `metadata` field for `create-attachment` and
-`update-attachment` to describe changes to the attachment meta
-data (JSON will be transformed to YAML in the store):
-
-    Content-Type: application/x-yaml
-
-    action: <create|update>-attachment
-    id: <action ID>
-    object: <uuid or action ID>
-    metadata:
-      - some
-      - arbitrary
-      - yaml: or json
-        meta: data
-
-The second part is the actually attachment data, which comes in the
+The second part is the actually raw property data, which comes in the
 form of an arbitrary `Content-Type` and data.
 
-An example transaction that adds a patch attachment to an issue in an
+An example transaction that sets the `patch` property of an issue in an
 issue tracker could look as follows:
 
     Content-Type: multipart/mixed; boundary=NEXTPLEASE
@@ -1738,15 +1703,9 @@ issue tracker could look as follows:
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
-    action: create-attachment
+    action: update-raw-property
     id: 1
     object: decf91ab-fc9c-4e3c-a838-09d704663a87
-    metadata:
-      author: nick@xfce.org
-      mime-type: text/plain
-      comment: |
-        This patch makes Thunar use the "utilities-terminal" icon
-        name for the default UCA action.
     --NEXTPLEASE
     Content-Type: text/plain
 
@@ -1782,9 +1741,10 @@ Examples are:
   one lane to another requires the reference to the card to be removed
   from the old lane and a new reference to the card to be inserted in
   its new lane.
-* Creating an object along with uploading an attachment for it requires
-  a reference from the attachment to the object since, at the point of
-  sending the transaction, the object UUID is unknown.
+* Creating an object along with setting a raw property for it requires
+  a reference from the raw property action to the object creation
+  action since, at the point of sending the transaction, the object
+  UUID is unknown.
 
 This is what the action IDs of `POST /transaction` are for: in addition
 to regular references of the form
@@ -2596,8 +2556,6 @@ Like `POST /query` except that the query root is set to
 |                      |             comments:                                           |
 |                      |               - uuid: e96dcdf9-fd5f-4e66-af73-58db9ee15701      |
 |                      |               - uuid: b7dbfd80-8afd-44a7-a636-f69c5a9fe517      |
-|                      |           attachments:                                          |
-|                      |             - screenshot.png                                    |
 +----------------------+-----------------------------------------------------------------+
 
 ### `POST /objects/:uuid/query`
