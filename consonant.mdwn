@@ -29,8 +29,9 @@
 * Do we want to support pagination when requesting a lot of objects?
 * The mandatory `content-type` property for attachment meta data is not
   not documented yet.
-* The `POST /transaction` API needs additional transaction header
-  fields like "author" and "message".
+* Commit "objects" currently have no information about what objects
+  they changed in what way. And in the query language we don't have a
+  way to e.g. check whether an object was changed in a commit yet.
 
 # Introduction
 
@@ -588,7 +589,7 @@ The following table lists all data types supported by Consonant schemas.
 |             | same or a different Consonant store.                        |
 +-------------+-------------------------------------------------------------+
 | list        | Data type for lists of values of another basic data type.   |
-|             | Lists may be nested.                                        |
+|             | Lists may not be nested.                                    |
 +-------------+-------------------------------------------------------------+
 
 ### Properties of type `boolean`
@@ -764,18 +765,19 @@ List properties are defined in schemas as follows:
         elements:
             <type definition for elements>
 
-One example would be a list of lists of strings:
+One example would be a list of strings:
 
     <name>:
         type: list
         elements:
-            type: list
-            elements:
-                type: string
+            type: string
+
+Lists may not be nested, meaning that the allowed element types are
+limited to `boolean`, `int`, `float`, `text` and `reference`.
 
 Lists are required to always contain at least one element. The
 `optional` flag can be used to define list properties that may be empty
-(by not being set at at all).
+by not being set at at all.
 
 #### Usage
 
