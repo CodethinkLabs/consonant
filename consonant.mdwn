@@ -568,8 +568,8 @@ data stores.
 The following table lists all data types supported by Consonant schemas.
 
 +-------------+-------------------------------------------------------------+
-| Name        | Description                                                 |
-+=============+=============================================================+
+| **Name**    | **Description**                                             |
++-------------+-------------------------------------------------------------+
 | boolean     | Data type with only two possible values: `true` or `false`. |
 +-------------+-------------------------------------------------------------+
 | int         | Data type for 64 bit signed integers.                       |
@@ -1010,10 +1010,10 @@ assume that JSON can be used in exactly the same way.
 First, the request using YAML:
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/schema                               |
+| **Example request**  |     GET /consonant/api/1.0/schema                               |
 |                      |     Accept: application/x-yaml                                  |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     Content-Type: application/x-yaml                            |
+| **Example response** |     Content-Type: application/x-yaml                            |
 |                      |                                                                 |
 |                      |     uuid: org.yourproject.kanban.schema.1                       |
 |                      |     classes:                                                    |
@@ -1034,10 +1034,10 @@ First, the request using YAML:
 Second, the same request using JSON:
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/schema                               |
+| **Example request**  |     GET /consonant/api/1.0/schema                               |
 |                      |     Accept: application/json                                    |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     Content-Type: application/json                              |
+| **Example response** |     Content-Type: application/json                              |
 |                      |                                                                 |
 |                      |     {                                                           |
 |                      |       "uuid": "org.yourproject.kanban.schema.1",                |
@@ -1076,9 +1076,9 @@ service. Use the HTTP `Accept` header to specify whether the schema
 should be returned as YAML or JSON:
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/schema                               |
+| **Example request**  |     GET /consonant/api/1.0/schema                               |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     uuid: org.yourproject.kanban.schema.1                       |
+| **Example response** |     uuid: org.yourproject.kanban.schema.1                       |
 |                      |     classes:                                                    |
 |                      |       lane:                                                     |
 |                      |         properties:                                             |
@@ -1103,9 +1103,9 @@ available in the store to some meta data, including:
 * ...?
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes                              |
+| **Example request**  |     GET /consonant/api/1.0/classes                              |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     lane:                                                       |
+| **Example response** |     lane:                                                       |
 |                      |       objects:                                                  |
 |                      |         total:  7                                               |
 |                      |         active: 5                                               |
@@ -1122,9 +1122,9 @@ available in the store to some meta data, including:
 Like `GET /classes` but fetches the meta data for a single class only.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes/lane                         |
+| **Example request**  |     GET /consonant/api/1.0/classes/lane                         |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     lane:                                                       |
+| **Example response** |     lane:                                                       |
 |                      |       objects:                                                  |
 |                      |         total:  7                                               |
 |                      |         active: 5                                               |
@@ -1141,9 +1141,9 @@ is the responsibility of the client.
 The objects of the class are returned as a list of dictionaries.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes/card/objects                 |
+| **Example request**  |     GET /consonant/api/1.0/classes/card/objects                 |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     - uuid: ccb920a2-810a-4264-b022-d92f36f849bf                |
+| **Example response** |     - uuid: ccb920a2-810a-4264-b022-d92f36f849bf                |
 |                      |       class: card                                               |
 |                      |       hidden: false                                             |
 |                      |       properties:                                               |
@@ -1169,10 +1169,10 @@ class does not exist or if the object UUID does not refer to an object
 of the given class.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
+| **Example request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
 |                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca                  |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     class: lane                                                 |
+| **Example response** |     class: lane                                                 |
 |                      |     hidden: false                                               |
 |                      |     properties:                                                 |
 |                      |       title: Backlog                                            |
@@ -1188,11 +1188,11 @@ corresponding object. Returns a 404 if the class does not exist or if
 the object UUID does not refer to an object of the given class.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
+| **Example request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
 |                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca/...              |
 |                      |           properties                                            |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     title: Backlog                                              |
+| **Example response** |     title: Backlog                                              |
 |                      |     cards:                                                      |
 |                      |       - uuid: c545a172-6960-411c-bd06-e4cd9efb2a29              |
 |                      |       - uuid: f985009e-e52b-4f4c-a6bd-34d27462e000              |
@@ -1207,11 +1207,11 @@ given class or if a property with the given name does not exist in the
 class.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
+| **Example request**  |     GET /consonant/api/1.0/classes/lane/objects/...             |
 |                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca/...              |
 |                      |           properties/title                                      |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     Backlog                                                     |
+| **Example response** |     Backlog                                                     |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /classes/:class/objects/:uuid/attachments`
@@ -1221,11 +1221,11 @@ the names of all attachments of the corresponding objec to their meta
 data.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
+| **Example request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
 |                      |           ccb920a2-810a-4264-b022-d92f36f849bf/...              |
 |                      |           attachments                                           |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     screenshot.png:                                             |
+| **Example response** |     screenshot.png:                                             |
 |                      |       content-type: image/png                                   |
 |                      |       properties:                                               |
 |                      |         description: Screenshot of the bug.                     |
@@ -1239,11 +1239,11 @@ exist, if the object UUID does not refer to an object of the given
 class or if no attachment with the given name exists for the object.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
+| **Example request**  |     GET /consonant/api/1.0/classes/card/objects/...             |
 |                      |           ccb920a2-810a-4264-b022-d92f36f849bf/...              |
 |                      |           attachments/screenshot.png                            |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     content-type: image/png                                     |
+| **Example response** |     content-type: image/png                                     |
 |                      |     properties:                                                 |
 |                      |       description: Screenshot of the bug.                       |
 +----------------------+-----------------------------------------------------------------+
@@ -1267,9 +1267,9 @@ responsibility of the client.
 The result is a dictionary that maps class names to lists of objects.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/objects                              |
+| **Example request**  |     GET /consonant/api/1.0/objects                              |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     lane:                                                       |
+| **Example response** |     lane:                                                       |
 |                      |       - uuid: b5decbb8-54b6-49a7-923b-7c3e04dfadca              |
 |                      |         class: lane                                             |
 |                      |         hidden: false                                           |
@@ -1296,10 +1296,10 @@ for the corresponding object. Returns a 404 if the object UUID does not
 refer to an existing object in the store.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/objects/...                          |
+| **Example request**  |     GET /consonant/api/1.0/objects/...                          |
 |                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca                  |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     class: lane                                                 |
+| **Example response** |     class: lane                                                 |
 |                      |     hidden: false                                               |
 |                      |     properties:                                                 |
 |                      |       title: Backlog                                            |
@@ -1317,10 +1317,10 @@ a 404 if the object UUID does not refer to an existing object in the
 store.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/objects/...                          |
+| **Example request**  |     GET /consonant/api/1.0/objects/...                          |
 |                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca/class            |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     lane                                                        |
+| **Example response** |     lane                                                        |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /objects/:uuid/properties`
@@ -1376,9 +1376,9 @@ dictionary per ref, including the following keys:
     - `parents`: a list of parent commit SHA1s.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/refs                                 |
+| **Example request**  |     GET /consonant/api/1.0/refs                                 |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     HEAD:                                                       |
+| **Example response** |     HEAD:                                                       |
 |                      |       type: branch                                              |
 |                      |       url-aliases:                                              |
 |                      |         - HEAD                                                  |
@@ -1429,9 +1429,9 @@ Like `GET /refs` except that it takes the name/SHA1 of a Git ref and
 returns information about that ref only.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/refs/master                          |
+| **Example request**  |     GET /consonant/api/1.0/refs/master                          |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |       url-aliases:                                              |
+| **Example response** |       url-aliases:                                              |
 |                      |         - master                                                |
 |                      |         - refs:heads:master                                     |
 |                      |       head:                                                     |
@@ -1861,10 +1861,10 @@ to the input of `POST /transactions`:
   but are provided as links.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/transactions/...                     |
+| **Example request**  |     GET /consonant/api/1.0/transactions/...                     |
 |                      |           12f4b1d99ad018d6fac45703ba63de491d320f6a              |
 +----------------------+-----------------------------------------------------------------+
-| **Example Response** |     - action: begin                                             |
+| **Example response** |     - action: begin                                             |
 |                      |       source: c1dd82cba74fa4b8d14b66f7275d0c5a1169a7ad          |
 |                      |     - action: create                                            |
 |                      |       id: 1                                                     |
@@ -1926,7 +1926,7 @@ This method does not fully expand changes to objects into actions like
 have been added, modified and deleted by listing their UUIDs.
 
 +----------------------+-----------------------------------------------------------------+
-| **Example Request**  |     GET /consonant/api/1.0/commits/..                           |
+| **Example request**  |     GET /consonant/api/1.0/commits/..                           |
 |                      |           1425674028f4936dacb82e925ad1d7daa66fe810              |
 +----------------------+-----------------------------------------------------------------+
 |                      |     sha1: 1425674028f4936dacb82e925ad1d7daa66fe810              |
@@ -2037,12 +2037,79 @@ or as JSON. The query language itself specifies:
   properties, for terminating traversals and filtering results.
 
 Queries consists of a name and either a *set filter* or a
-*arbitrary-depth graph traversal*, the query body. Queries are
-defined as a YAML/JSON key/value pair, where the name is the key
-and the query body is the value:
+*advanced traversal*, the query body. Queries are defined as a
+YAML/JSON key/value pair, where the name is the key and the query body
+is the value:
 
     <query name>:
         <query body>
+
+Query results are YAML/JSON key/value pairs with the key being the
+query name and the value being a list of nodes representing the
+query result:
+
+    <query name>:
+        - node: <node path>
+          type: object
+          object:
+            ...
+        - node: <node path>
+          type: commit
+          commit:
+            ...
+        - node: <node path>
+          type: class
+          class:
+            ...
+
+#### Submitting multiple queries at once
+
+Consonant implementations are required to support the submission of
+multiple named queries at once. This allows to compose advanced queries
+from simple sub-queries. It also allows for *MapReduce*-style queries
+that first collect all candidate nodes using set filters and advanced
+traversals (see **Set filters** and **Advanced traversals**) and then
+combine and reduce those intermediate results using set filters.
+
+A feature that all Consonant implementations are further required to
+support is to exclude the results of specific queries from the overall
+result returned to the entity making the queries. By default, the
+results of all queries are returned as a dictionary that maps query
+names to results represented as lists of nodes. By prefixing a query
+name with an underscore (`_`) in the input (e.g. `_lanes-with-cards`),
+the result of a query will not be included in the overall result.
+
+**Example:** Multiple queries submitted at once, one of them hidden.
+
+    _lanes-with-cards:
+      yield: x
+      for: x
+      in:
+        - [HEAD].class.lane.objects
+      if:
+        - filter: is-set
+          attribute: x.cards
+    cards:
+      yield: c
+      for: c
+      in:
+        - _lanes-with-cards
+
+The above example will yield a result of the following form, without
+including the result of `_lanes-with-cards`:
+
+    cards:
+      - node: [org.yourproject.store.uuid].\
+              c5d7941e2c5da3c54266012f022738a4ed49392d.\
+              objects.a8833d73-3acc-4a95-a0b7-1ebaca53372a
+        type: object
+        object:
+          uuid: a8833d73-3acc-4a95-a0b7-1ebaca53372a
+          class: card
+          properties:
+            title: Do this and that task
+            ...
+      - node: ...
 
 #### Node paths
 
@@ -2086,6 +2153,9 @@ class and objects pointed to by a Git ref:
   with the given UUID for the commit node for the given Git ref in
   the store with the given store UUID.
 
+**Note:** the `[<store uuid>]` part may be omitted from node paths
+in queries that are submitted to a store with the UUID `<store uuid>`.
+
 #### Query root
 
 Every query has a root. This is always a set of nodes or a single node
@@ -2094,21 +2164,23 @@ root node path that is either explicitly provided by the entity
 submitting the query or implicitly derived from things like the
 URL or method the query is submitted to.
 
-#### Fixed-depth graph traversal
+The query root can be refered to by the name `root`. This name may
+be overriden by variable names in set filters or advanced traversals.
 
-Starting from either a node path or a specific node, fixed-depth graph
-traversals provide a way to recursively follow references to other
-nodes up to a limited depth. This is a key feature to make filtering
-and traversal termination conditions in set filters and arbitrary-depth
-graph traversals powerful enough to be useful.
+#### Simple traversal
+
+Starting from either a node path or a specific node, simple traversals
+provide a way to recursively follow references to other nodes up to a
+limited depth. This is a key feature to make filtering and traversal
+termination conditions in set filters and advanced traversals powerful
+enough to be useful.
 
 The syntax for fix-depth graph traversals follows the same structure
-as node paths: segments separated by dots. Any fixed-depth graph
-traversal expression is composed of two parts:
+as node paths: segments separated by dots. Any simple traversal
+expression is composed of two parts:
 
 1. a node path or variable name (see *Set filters* and
-   *Arbitrary-depth graph traversals* for more information about
-   variables),
+   *Advanced graph traversals* for more information about variables),
 2. an optional, mixed sequence of node attribute names and numeric
    indices, separated by dots.
 
@@ -2135,11 +2207,11 @@ sets.
 
 Set filters are defined as dictionaries with the following fields:
 
-* `yield`: a fixed-depth graph traversal specifying a node or a set
-  of nodes to put into the result,
+* `yield`: a simple traversal specifying a node or a set of nodes to
+  put into the result,
 * `for`: a variable name,
-* `in`: input sets defined via a mixed list of fixed-depth graph
-  traversals and names of other named queries,
+* `in`: input sets defined via a mixed list of simple traversals and
+  names of other named queries,
 * `if` (optional): a list of boolean filters to filter out nodes
   assigned to the variable defined in `for` before they are passed to
   `yield` (see *Filters* for more information about filters).
@@ -2170,23 +2242,23 @@ the previous example query (`non-empty-lanes`):
           property: lane.title
           value: Backlog
 
-#### Arbitrary-depth graph traversals
+#### Advanced traversals
 
-An arbitrary-depth graph traversal takes a single node and repeatedly
-applies a fixed-depth graph traversal until a condition terminates the
-traversal. The final result is determined via a fixed-depth traversal
-starting from each node that is reached in the recursive traversal,
-minus those nodes filtered out using a set of filters.
+An advanced traversal takes a single node and repeatedly applies a
+simple traversal until a condition terminates the traversal.
+The final result is determined via a simple traversal starting from
+each node that is reached in the recursive traversal, minus those
+nodes filtered out using a set of filters.
 
-Arbitrary-depth graph traversals are defined as dictionaries with the
-following fields:
+Advanced traversals are defined as dictionaries with the following
+fields:
 
-* `yield`: a fixed-depth graph traversal specifying a node or a set of
-  nodes to put into the result,
+* `yield`: a simple traversal specifying a node or a set of nodes to
+  put into the result,
 * `for`: a variable name,
-* `from`: a fixed-depth graph traversal specifying the root of the
-  arbitrary-depth graph traversal,
-* `via`: a fixed-depth graph traversal specifying the recursion
+* `from`: a simple traversal specifying the root of the advanced
+  traversal,
+* `via`: a simple traversal specifying the recursion
   traversal,
 * `until`: a list of boolean filters that terminate the traversal if
   they are all true at the same time,
@@ -2232,47 +2304,349 @@ for commits that changed the object with the UUID
 
 #### Boolean filters
 
-TODO
+Filters provide means to terminate advanced traversals and filter out
+elements from traversals and set filters. They usually operate on the
+set filter or traversal variable but may also access the overall
+namespace via node paths.
+
+All filters can operate on both nodes and objects. To have them operate
+against node attributes use the `attribute` parameter, for checking
+properties the `property` parameter can be used. Only one of `attribute`
+and `property` can be used at a time.
+
+Multiple filters provided to an `until` or `if` section of a query
+are combined with a logical AND. A logical OR can be established by
+combining the results of multiple queries into one result via a set
+filter.
+
+##### The `is-hidden` filter {-}
+
+Evaluates to true if a all nodes in a given set of nodes are hidden.
+The filter can be inverted to evaluate to true if *none* of the nodes
+are hidden.
+
+The `is-hidden` filter has the following parameters:
+
+* `nodes`: a mixed list of the set filter / advanced traversal variable
+  and node paths that together describe a set of nodes,
+* `inverted` (optional): `true` or `false` (default: `false`).
+
+##### The `is-set` filter {-}
+
+Evaluates to true if the attribute or property of a node or object is
+set.  It can also be used to check whether a list property is empty.
+The filter can be inverted to evaluate to true if the given attribute
+or property is *not* set.
+
+The `is-set` filter has the following parameters:
+
+* `attribute`: a simple traversal with the last segment being the name
+  of a node attribute;
+* `property`: a simple traversal with the last segment being the name
+  of the property of the object/commit/class of a node;
+* `inverted` (optional): `true` or `false` (default: `false`).
+
+Example that checks whether a commit node has any objects:
+
+    filter: is-set
+    attribute: [HEAD].objects
+
+Example that checks whether the object of an object node has its `title`
+property set:
+
+    filter: is-set
+    attribute: [HEAD].objects.95ee5515-aebf-45bd-b912-6f3c94a5d63a.title
+
+Note: to access the property of underlying objects it is not necessary
+for the simple traversal to drill down all the way. If provided with a
+simple traversal for a node or a set of nodes, plus a final segment
+describing an property name of the underlying object or set of objects,
+the filter will automatically apply to the property of the object(s)
+rather than operating on node attributes.
+
+##### The `equals` filter {-}
+
+Evaluates to true if the attribute or property of a node or object is
+set to a specific value or set of nodes. The filter can be inverted
+to evaluate to true if the attribute or property is not equal to the
+given value or node set.
+
+The `equals` filter has the following parameters:
+
+* `attribute`: a simple traversal with the last segment being the name
+  of a node attribute;
+* `property`: a simple traversal with the last segment being the name
+  of the property of the object/commit/class of a node;
+* `value`: a node attribute or object property value (anything from a
+  number to a string or a list);
+* `nodes`: a mixed list of the set filter / advanced traversal variable
+  and node paths that together describe a set of nodes;
+* `inverted` (optional): `true` or `false`.
+
+The parameters `value` and `nodes` may not be used together. The
+`nodes` parameter is useful to check whether a node is refered to by
+another node via some attribute, e.g. whether or not a specific object
+node is referenced by another node.
+
+Example that checks whether a specific kanban lane object node is
+referenced by a kanban card object node via the node attribute `card`:
+
+    filter: equals
+    attribute: [HEAD].objects.571c819c-aec8-4236-8958-262408bbf22e.card
+    nodes:
+      - [HEAD].objects.0b081572-42f8-497e-98bc-439331984943
+
+Example that checks whether the author of a commit node is set to
+`Jordan Clark` `<jordan@yourproject.org>`:
+
+    filter: equals
+    property: [HEAD].author
+    value: Jordan Clark <jordan@yourproject.org>
+
+Example that checks whether an object is of a specific class `card`
+by applying the `equals` filter on the `class` attribute of the
+object node:
+
+    filter: equals
+    attribute: [HEAD].objects.0f5acf9d-14a7-46e5-8dcd-9ea3f3c0cd5e
+    nodes:
+      - [HEAD].classes.card
+
+##### The `contains` filter {-}
+
+Evaluates to true if the attribute or property of a node or object
+contains a specific value or set of nodes. The filter can be inverted
+to evaluate to true if the attribute or property does *not* contain the
+given value or node set.
+
+The `contains` filter has the following parameters:
+
+* `attribute`: a simple traversal with the last segment being the name
+  of a node attribute;
+* `property`: a simple traversal with the last segment being the name
+  of the property of the object/commit/class of a node;
+* `value`: a node attribute or object property value (anything from a
+  number to a string or a list);
+* `nodes`: a mixed list of the set filter / advanced traversal variable
+  and node paths that together describe a set of nodes;
+* `inverted` (optional): `true` or `false`.
+
+The parameters `value` and `nodes` may not be used together. The
+`nodes` parameter is useful to check whether a node is refered to by
+another node via some attribute, e.g. whether or not a specific object
+node is referenced by another node.
+
+Example that checks whether a specific object node is referenced by a
+commit node:
+
+    filter: contains
+    attribute: [HEAD].objects
+    nodes:
+      - [HEAD].objects.26e1776a-a1e4-47bc-ba7d-3ac6d7a77817
+
+Example that checks whether the string `needs-attention` is in the
+string list property `tags` of the underlying object of an object
+node:
+
+    filter: contains
+    property: [HEAD].objects.95b27506-446a-4c6a-935f-2a685a3baccd.tags
+    value: needs-attention
+
+##### The `matches` filter {-}
+
+Evaluates to true if the property of the underlying object/commit/class
+of a node matches a given regular expression. The filter can be
+inverted to evaluate to true if the property does *not* match the
+expression.
+
+The `matches` filter has the following parameters:
+
+* `property`: a simple traversal with the last segment being the name
+  of the property of the object/commit/class of a node;
+* `expression`: a regular expression;
+* `inverted` (optional): `true` or `false`.
+
+Example that checks whether the `title` property of a specific object
+node matches the expression `^.*Backlog.*$`:
+
+    filter: matches
+    property: [HEAD].objects.8980cd8f-59ec-40fd-9e8d-7620d1daf903
+    expression: ^.*Backlog.*$
 
 ### `POST /query`
 
-TODO
+Takes a YAML/JSON dictionary that maps query names to query bodies.
+Returns a YAML/JSON dictionary that mapps query names to lists of nodes
+representing the results of queries.
+
+The query root (accessible via `root`) is set to `[HEAD]`.
+
++----------------------+-----------------------------------------------------------------+
+| **Example request**  |     POST /consonant/api/1.0/query                               |
+|                      |     Content-Type: application/x-yaml                            |
+|                      |     Accept: application/x-yaml                                  |
+|                      |                                                                 |
+|                      |     _backlog-cards:                                             |
+|                      |       yield: lane.cards                                         |
+|                      |       for: lane                                                 |
+|                      |       in:                                                       |
+|                      |         - root.classes.lane                                     |
+|                      |       if:                                                       |
+|                      |         - filter: equals                                        |
+|                      |           property: lane.title                                  |
+|                      |           value: Backlog                                        |
+|                      |     unassigned-backlog-cards:                                   |
+|                      |       yield: card                                               |
+|                      |       for: card                                                 |
+|                      |       in:                                                       |
+|                      |         - backlog-lane                                          |
+|                      |       if:                                                       |
+|                      |         - filter: is-set                                        |
+|                      |           attribute: card.assignees                             |
+|                      |           inverted: true                                        |
++----------------------+-----------------------------------------------------------------+
+| **Example response** |     unassigend-backlog-cards:                                   |
+|                      |       - node: [org.yourproject.store.uuid]\.                    |
+|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |               objects.5d8cc1d1-c28a-4c99-9634-0c9f93268a2a      |
+|                      |         type: object                                            |
+|                      |         object:                                                 |
+|                      |           uuid: 5d8cc1d1-c28a-4c99-9634-0c9f93268a2a            |
+|                      |           class: card                                           |
+|                      |           properties:                                           |
+|                      |             title: Do this and that                             |
+|                      |             ...                                                 |
+|                      |       - node: [org.yourproject.store.uuid]\.                    |
+|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |               objects.da6e97fc-8566-4c43-8e5e-9e8510a273ee      |
+|                      |         type: object                                            |
+|                      |         object:                                                 |
+|                      |           uuid: da6e97fc-8566-4c43-8e5e-9e8510a273ee            |
+|                      |           class: card                                           |
+|                      |           properties:                                           |
+|                      |             title: Fix bug XYZ                                  |
+|                      |             ...                                                 |
++----------------------+-----------------------------------------------------------------+
 
 ### `POST /classes/:class/query`
 
-TODO
+Like `POST /query` except that the query root is set to
+`[HEAD].classes.<:class>` instead of `[HEAD]`.
+
++----------------------+-----------------------------------------------------------------+
+| **Example request**  |     POST /consonant/api/1.0/classes/lane/query                  |
+|                      |     Content-Type: application/x-yaml                            |
+|                      |     Accept: application/x-yaml                                  |
+|                      |                                                                 |
+|                      |     self:                                                       |
+|                      |       yield: x                                                  |
+|                      |       for: x                                                    |
+|                      |       in:                                                       |
+|                      |         - root                                                  |
++----------------------+-----------------------------------------------------------------+
+| **Example response** |     self:                                                       |
+|                      |       - node: [org.yourproject.store.uuid]\.                    |
+|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |               class.lane                                        |
+|                      |         type: class                                             |
+|                      |         class:                                                  |
+|                      |           name: lane                                            |
+|                      |           objects:                                              |
+|                      |             total: 11                                           |
+|                      |             active: 8                                           |
+|                      |             hidden: 3                                           |
++----------------------+-----------------------------------------------------------------+
 
 ### `POST /classes/:class/objects/:uuid/query`
 
-TODO
+Like `POST /query` except that the query root is set to
+`[HEAD].objects.<:uuid>` instead of `[HEAD]`.
+
++----------------------+-----------------------------------------------------------------+
+| **Example request**  |     POST /consonant/api/1.0/classes/card/objects/               |
+|                      |            ccb920a2-810a-4264-b022-d92f36f849bf/query           |
+|                      |     Content-Type: application/x-yaml                            |
+|                      |     Accept: application/x-yaml                                  |
+|                      |                                                                 |
+|                      |     self:                                                       |
+|                      |       yield: x                                                  |
+|                      |       for: x                                                    |
+|                      |       in:                                                       |
+|                      |         - root                                                  |
++----------------------+-----------------------------------------------------------------+
+| **Example response** |     self:                                                       |
+|                      |       - node: [org.yourproject.store.uuid]\.                    |
+|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |               objects.ccb920a2-810a-4264-b022-d92f36f849bf      |
+|                      |         type: object                                            |
+|                      |         object:                                                 |
+|                      |           uuid: ccb920a2-810a-4264-b022-d92f36f849bf            |
+|                      |           class: card                                           |
+|                      |           hidden: false                                         |
+|                      |           properties:                                           |
+|                      |             title: Fix bug #5932                                |
+|                      |             comments:                                           |
+|                      |               - uuid: e96dcdf9-fd5f-4e66-af73-58db9ee15701      |
+|                      |               - uuid: b7dbfd80-8afd-44a7-a636-f69c5a9fe517      |
+|                      |           attachments:                                          |
+|                      |             - screenshot.png                                    |
++----------------------+-----------------------------------------------------------------+
 
 ### `POST /objects/:uuid/query`
 
-TODO
+Like `POST /classes/:class/object/:uuid/query`.
 
 ### `POST /refs/:ref/query`
 
-TODO
+Like `POST /query` except that the query root is set to `[:ref]`
+instead of `[HEAD]`.
+
++----------------------+-----------------------------------------------------------------+
+| **Example request**  |     POST /consonant/api/1.0/refs/some-branch/query              |
+|                      |     Content-Type: application/x-yaml                            |
+|                      |     Accept: application/x-yaml                                  |
+|                      |                                                                 |
+|                      |     self:                                                       |
+|                      |       yield: x                                                  |
+|                      |       for: x                                                    |
+|                      |       in:                                                       |
+|                      |         - root                                                  |
++----------------------+-----------------------------------------------------------------+
+| **Example response** |     self:                                                       |
+|                      |       - node: [org.yourproject.store.uuid]\.                    |
+|                      |               [5c37acbad6f545445eaf07983b40e11d4d7354dc]        |
+|                      |         type: commit                                            |
+|                      |         commit:                                                 |
+|                      |           sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc        |
+|                      |           author: Jeff Arnold <jeff@yourproject.org>            |
+|                      |           author-date: 1374684008 +0100                         |
+|                      |           committer: Jeff Arnold <jeff@yourproject.org>         |
+|                      |           committer-date: 1374782771 +0100                      |
+|                      |           subject: Archive a couple of kanban cards             |
+|                      |           parents:                                              |
+|                      |             - ff49cf94860caea73fd50c797735eeb10a3b1ab5          |
+|                      |             - 9080579c0387268fe41b4474b25b01baa2ef9f7c          |
++----------------------+-----------------------------------------------------------------+
 
 ### `POST /refs/:ref/classes/:class/query`
 
-TODO
+Like `POST /classes/:class/query` except that the query root is set to \
+`[:ref].classes.<:class>` instead of `[HEAD].classes.<:class>`.
 
 ### `POST /refs/:ref/classes/:class/objects/:uuid/query`
 
-TODO
+Like `POST /classes/:class/objects/:uuid/query` except that the query
+root is set to `[:ref].objects.<:uuid>` instead of
+`[HEAD].objects.<:uuid>`.
 
 ### `POST /refs/:ref/objects/:uuid/query`
 
-TODO
+Like `POST /objects/:uuid/query` except that the query root is set to
+`[:ref].objects.<:uuid>` instead of `[HEAD].objects.<:uuid>`.
 
 ## Streaming API
 
-TODO
-
-### `GET /stream`
-
-TODO
+Left to be specified in future versions.
 
 # Appendix
 
@@ -2408,7 +2782,3 @@ classes and link them together is this:
             type: text
           description:
             type: text
-
-### Example issues schema
-
-TODO
