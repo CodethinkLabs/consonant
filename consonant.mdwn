@@ -1,7 +1,7 @@
-% Consonant Specification, Version 0.0
+% Consonant Specification, Version 0.1
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
-% July 26th, 2013
+% August 20th, 2013
 
 # Issues to fix
 
@@ -26,10 +26,11 @@
   for read methods where you might want to know what doesn't exist:
   the class, the object in the class or the property that you've asked
   for.
-* Do we want to support pagination when requesting a lot of objects?
-* Commit "objects" currently have no information about what objects
-  they changed in what way. And in the query language we don't have a
-  way to e.g. check whether an object was changed in a commit yet.
+* Commit "objects" currently have no useful information about what
+  objects they changed in what way. Our examples include such
+  information but in a very unclear, messy, bad way. And in the query
+  language we don't have a way to e.g. check whether an object was
+  changed in a commit yet. We need to sort that out.
 
 # Introduction
 
@@ -368,14 +369,6 @@ Raw properties consist of two elements:
 1. a content type, stored under the property name in `properties.yaml`,
 2. the raw property data, stored in a file named after the property
    in the `raw/` subdirectory inside the object directory.
-
-As part of the validation process, Consonant implementations are
-required to verify that the content type stored in `properties.yaml`
-follows the
-[Internet media type](http://en.wikipedia.org/wiki/Internet_media_type)
-format. The content types are, however, not required to refer to
-existing types. This allows for applications-specific types to be
-used.
 
 #### Example `raw` directory
 
@@ -798,6 +791,20 @@ Raw properties can store arbitrary data. If a `content-type-regex`
 validation rule is defined, the content type stored in
 `properties.yaml` must match this regular expression.
 
+As part of the validation process, Consonant implementations are
+required to verify that the content type stored in `properties.yaml`
+follows the
+[Internet media type](http://en.wikipedia.org/wiki/Internet_media_type)
+format. The content types are, however, not required to refer to
+existing types. This allows for applications-specific types to be
+used.
+
+If a raw property is present, it must exist both as a content-type
+in `properties.yaml` and a file in the `raw/` subdirectory. Every
+file in the `raw/` subdirectory must have a corresponding raw property
+entry in the `properties.yaml`. This has to be enforced through
+validation of transactions etc.
+
 ### Properties of type `list`
 
 #### Definition
@@ -1187,9 +1194,10 @@ Like `GET /classes` but fetches the meta data for a single class only.
 
 Fetches all objects of a given class, including their properties. The
 response does not include the full data of raw properties but returns
-links to accessing the raw property data instead, which can then be
-used to e.g. embed image data in a web browser. Object references are
-not resolved recursively; this is the responsibility of the client.
+only the content type, which can then be used in combination with a
+`GET` request to retrieve the raw property data in order to e.g. embed
+an image in a web browser. Object references are not resolved
+recursively; this is the responsibility of the client.
 
 The objects of the class are returned as a list of dictionaries.
 
@@ -1229,9 +1237,7 @@ of the given class.
 |                      |     hidden: false                                               |
 |                      |     properties:                                                 |
 |                      |       title: Patch that might fix the issue                     |
-|                      |       data: /consonant/api/1.0/objects/...                      |
-|                      |               b3d94ccd-0e0c-4f9f-8a6b-c01327a70336/...          |
-|                      |               properties/data                                   |
+|                      |       data: text/plain                                          |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /classes/:class/objects/:uuid/properties`
@@ -1944,7 +1950,8 @@ other nodes.
 commit nodes as there are commits in the store. Each commit node has
 the following attributes:
 
-* `path`: a unique node path (see the *Node paths* section);
+* `node`: a unique node path (see the *Node paths* section);
+* `type`: a type string set to `commit`;
 * `commit`: the commit represented by the commit node;
 * `parents`: a list of references to the commit nodes representing
   the parent commits of the commit represented by the node itself,
@@ -1959,7 +1966,8 @@ the following attributes:
 a store. There is one class node for each class directory in each
 commit of the store. Each class node has the following attributes:
 
-* `path`: a unique node path (see the *Node paths section);
+* `node`: a unique node path (see the *Node paths section);
+* `type`: a type string set to `class`;
 * `commit`: a reference to the commit node of the commit the class
   directory was loaded from;
 * `objects`: a set of references to all objects in the class at the
@@ -1971,13 +1979,17 @@ the store. While the underlying objects may be present in various
 commits, object nodes only exist once in the graph. Each object
 node has the following attributes:
 
-* `path`: a unique node path (see the *Node paths* section);
+* `node`: a unique node path (see the *Node paths* section);
+* `type`: a type string set to `object`;
 * `object`: the object represented by the object node;
+* `hidden`: a boolean attribute reflecting the hidden state of the
+  object;
 * `commit`: a reference to the commit node of the commit the object
   was loaded from;
-* another attributes `X` for each reference or reference list property
-  `X` of the represented object, with references to the nodes
-  corresponding to the objects referenced to via `X`.
+* `references`: an attribute that contains a subattribute `X` for
+  each reference or reference list property `X` of the represented
+  object, with references to the nodes corresponding to the objects
+  referenced to via `X`.
 
 Where the original objects and the references between them can be
 thought of as a regular directed graph or *data graph*, the
@@ -2053,10 +2065,10 @@ the result of a query will not be included in the overall result.
       yield: x
       for: x
       in:
-        - [HEAD].class.lane.objects
+        - (HEAD).class.lane.objects
       if:
         - filter: is-set
-          attribute: x.cards
+          attribute: x.references.cards
     cards:
       yield: c
       for: c
@@ -2067,8 +2079,8 @@ The above example will yield a result of the following form, without
 including the result of `_lanes-with-cards`:
 
     cards:
-      - node: [org.yourproject.store.uuid].\
-              c5d7941e2c5da3c54266012f022738a4ed49392d.\
+      - node: (org.yourproject.store.uuid).
+              c5d7941e2c5da3c54266012f022738a4ed49392d.
               objects.a8833d73-3acc-4a95-a0b7-1ebaca53372a
         type: object
         object:
@@ -2087,41 +2099,41 @@ nodes in the graph.
 
 Node paths are defined as follows:
 
-* `[<store uuid>]`: refers to all commit nodes in the store with the
+* `(<store uuid>)`: refers to all commit nodes in the store with the
   given UUID;
-* `[<store uuid>].[<sha1>]`: refers to the commit node for the commit
+* `(<store uuid>).(<sha1>)`: refers to the commit node for the commit
   with the given SHA1 in the store with the given UUID;
-* `[<store uuid>].[<sha1>]`.classes: refers to all class nodes for the
+* `(<store uuid>).(<sha1>)`.classes: refers to all class nodes for the
   commit node for the commit with the given SHA1 in the store with
   the given UUID;
-* `[<store uuid>].[<sha1>].classes.<name>`: refers to the class node
+* `(<store uuid>).(<sha1>).classes.<name>`: refers to the class node
   for the given class name and commit node for the commit with the
   given SHA1 in the store with the given UUID;
-* `[<store uuid>].[<sha1>].objects`: refers to all object nodes for the
+* `(<store uuid>).(<sha1>).objects`: refers to all object nodes for the
   commit node for the commit with the given SHA1 in the store with the
   given UUID;
-* `[<store uuid>].[<sha1>].objects.<uuid>`: refers to the object node
+* `(<store uuid>).(<sha1>).objects.<uuid>`: refers to the object node
   with the given UUID of the commit node for the given ref/sha1 in
   the store with the given store UUID.
 
 In addition, there are ambiguous node paths for refering to commits,
 class and objects pointed to by a Git ref:
 
-* `[<store uuid>].[<ref>]`: refers to all object nodes of the commit
+* `(<store uuid>).(<ref>)`: refers to all object nodes of the commit
   node of the given Git ref in the store with the given UUID;
-* `[<store uuid>].[<ref>]`.classes: refers to all class nodes of the
+* `(<store uuid>).(<ref>)`.classes: refers to all class nodes of the
   commit node for the given Git ref in the store with the given UUID;
-* `[<store uuid>].[<sha1>].classes.<name>`: refers to the class node
-  for the given class name and commit node for the commit with the
-  given SHA1 in the store with the given UUID;
-* `[<store uuid>].[<sha1>].objects`: refers to all object nodes for
+* `(<store uuid>).(<ref>).classes.<name>`: refers to the class node
+  for the given class name and commit node for given Git ref in the
+  store with the given UUID;
+* `(<store uuid>).(<ref>).objects`: refers to all object nodes for
   the commit node for the given Git ref in the store with the given
   store UUID.
-* `[<store uuid>].[<sha1>].objects.<uuid>`: refers to the object node
+* `(<store uuid>).(<ref>).objects.<uuid>`: refers to the object node
   with the given UUID for the commit node for the given Git ref in
   the store with the given store UUID.
 
-**Note:** the `[<store uuid>]` part may be omitted from node paths
+**Note:** the `(<store uuid>)` part may be omitted from node paths
 in queries that are submitted to a store with the UUID `<store uuid>`.
 
 #### Query root
@@ -2133,7 +2145,7 @@ submitting the query or implicitly derived from things like the
 URL or method the query is submitted to.
 
 The query root can be refered to by the name `root`. This name may
-be overriden by variable names in set filters or advanced traversals.
+be shadowed by variable names in set filters or advanced traversals.
 
 #### Simple traversal
 
@@ -2157,13 +2169,27 @@ Examples:
 * `root.commit.parents.0`: starting from the query root node (`root`),
   follows the reference to its commit node, then the parent commit
   nodes of that commit and returns the first parent commit node;
-* `foo.cards.assignees`: starting from a node represented by a variable
-  named `foo`, follows the node references in its `cards` attribute,
-  then returns the nodes referenced by the `assignees` attribute of all
-  the `cards` nodes;
-* `[HEAD].classes.lane`: a node path only traversal selecting the class
+* `foo.references.cards.references.assignees`: starting from a node
+  represented by a variable named `foo`, follows the node references
+  in its `cards` attribute, then returns the nodes referenced by the
+  `assignees` attribute of all the `cards` nodes;
+* `(HEAD).classes.lane`: a node path only traversal selecting the class
   node for `lane` class relative to the commit node for the commit
   pointed to by the Git ref `HEAD`.
+
+#### References between queries
+
+Queries may refer to the results of other queries via simple traversals.
+Internally, Consonant implementations are required to execute queries
+in the right order for results to be available to queries that refer
+to other queries.
+
+It is, however, not permitted for queries to refer to one another
+recursively. A query `foo` for example may refer to another query
+`bar` but `bar` may not refer back to `foo`. Formally speaking, the
+graph constructed from queries (nodes) and their references to one
+another (directed edges) has to be acyclic, otherwise a sensible
+order of execution is impossible.
 
 #### Set filters
 
@@ -2191,10 +2217,10 @@ class `lane` that have a non-empty set of cards:
       yield: lane
       for: lane
       in:
-        - [HEAD].classes.lane.objects
+        - (HEAD).classes.lane.objects
       if:
         - filter: is-set
-          attribute: lane.cards
+          attribute: lane.references.cards
 
 **Example:** Obtain a set of all object nodes that represent cards in
 the lane with the title "Backlog". The input set here is the result of
@@ -2241,13 +2267,13 @@ for commits since the object with the UUID
     history:
       yield: commit
       for: commit
-      from: [HEAD]
+      from: (HEAD)
       via: commit.parents.0
       until:
         - filter: contains
           attribute: commit.objects
           nodes:
-            - [HEAD].objects.f175f170-1d84-4123-93ba-8e3578697734
+            - (HEAD).objects.f175f170-1d84-4123-93ba-8e3578697734
           inverted: true
 
 **Example:** Starting from the Git ref `HEAD`, obtain all commit nodes
@@ -2257,13 +2283,13 @@ for commits that changed the object with the UUID
     history:
       yield: commit
       for: commit
-      from: [HEAD]
+      from: (HEAD)
       via: commit.parents.0
       until:
         - filter: contains
           attribute: commit.objects
           nodes:
-            - [HEAD].objects.f175f170-1d84-4123-93ba-8e3578697734
+            - (HEAD).objects.f175f170-1d84-4123-93ba-8e3578697734
       if:
         - filter: contains
           property: commit.changes
@@ -2317,13 +2343,13 @@ The `is-set` filter has the following parameters:
 Example that checks whether a commit node has any objects:
 
     filter: is-set
-    attribute: [HEAD].objects
+    attribute: (HEAD).objects
 
 Example that checks whether the object of an object node has its `title`
 property set:
 
     filter: is-set
-    attribute: [HEAD].objects.95ee5515-aebf-45bd-b912-6f3c94a5d63a.title
+    attribute: (HEAD).objects.95ee5515-aebf-45bd-b912-6f3c94a5d63a.title
 
 Note: to access the property of underlying objects it is not necessary
 for the simple traversal to drill down all the way. If provided with a
@@ -2360,15 +2386,15 @@ Example that checks whether a specific kanban lane object node is
 referenced by a kanban card object node via the node attribute `card`:
 
     filter: equals
-    attribute: [HEAD].objects.571c819c-aec8-4236-8958-262408bbf22e.card
+    attribute: (HEAD).objects.571c819c-aec8-4236-8958-262408bbf22e.card
     nodes:
-      - [HEAD].objects.0b081572-42f8-497e-98bc-439331984943
+      - (HEAD).objects.0b081572-42f8-497e-98bc-439331984943
 
 Example that checks whether the author of a commit node is set to
 `Jordan Clark` `<jordan@yourproject.org>`:
 
     filter: equals
-    property: [HEAD].author
+    property: (HEAD).author
     value: Jordan Clark <jordan@yourproject.org>
 
 Example that checks whether an object is of a specific class `card`
@@ -2376,9 +2402,9 @@ by applying the `equals` filter on the `class` attribute of the
 object node:
 
     filter: equals
-    attribute: [HEAD].objects.0f5acf9d-14a7-46e5-8dcd-9ea3f3c0cd5e
+    attribute: (HEAD).objects.0f5acf9d-14a7-46e5-8dcd-9ea3f3c0cd5e
     nodes:
-      - [HEAD].classes.card
+      - (HEAD).classes.card
 
 ##### The `contains` filter {-}
 
@@ -2408,16 +2434,16 @@ Example that checks whether a specific object node is referenced by a
 commit node:
 
     filter: contains
-    attribute: [HEAD].objects
+    attribute: (HEAD).objects
     nodes:
-      - [HEAD].objects.26e1776a-a1e4-47bc-ba7d-3ac6d7a77817
+      - (HEAD).objects.26e1776a-a1e4-47bc-ba7d-3ac6d7a77817
 
 Example that checks whether the string `needs-attention` is in the
 string list property `tags` of the underlying object of an object
 node:
 
     filter: contains
-    property: [HEAD].objects.95b27506-446a-4c6a-935f-2a685a3baccd.tags
+    property: (HEAD).objects.95b27506-446a-4c6a-935f-2a685a3baccd.tags
     value: needs-attention
 
 ##### The `matches` filter {-}
@@ -2438,7 +2464,7 @@ Example that checks whether the `title` property of a specific object
 node matches the expression `^.*Backlog.*$`:
 
     filter: matches
-    property: [HEAD].objects.8980cd8f-59ec-40fd-9e8d-7620d1daf903
+    property: (HEAD).objects.8980cd8f-59ec-40fd-9e8d-7620d1daf903
     expression: ^.*Backlog.*$
 
 ### `POST /query`
@@ -2447,7 +2473,7 @@ Takes a YAML/JSON dictionary that maps query names to query bodies.
 Returns a YAML/JSON dictionary that mapps query names to lists of nodes
 representing the results of queries.
 
-The query root (accessible via `root`) is set to `[HEAD]`.
+The query root (accessible via `root`) is set to `(HEAD)`.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     POST /consonant/api/1.0/query                               |
@@ -2455,7 +2481,7 @@ The query root (accessible via `root`) is set to `[HEAD]`.
 |                      |     Accept: application/x-yaml                                  |
 |                      |                                                                 |
 |                      |     _backlog-cards:                                             |
-|                      |       yield: lane.cards                                         |
+|                      |       yield: lane.references.cards                              |
 |                      |       for: lane                                                 |
 |                      |       in:                                                       |
 |                      |         - root.classes.lane                                     |
@@ -2474,8 +2500,8 @@ The query root (accessible via `root`) is set to `[HEAD]`.
 |                      |           inverted: true                                        |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     unassigend-backlog-cards:                                   |
-|                      |       - node: [org.yourproject.store.uuid]\.                    |
-|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               objects.5d8cc1d1-c28a-4c99-9634-0c9f93268a2a      |
 |                      |         type: object                                            |
 |                      |         object:                                                 |
@@ -2484,8 +2510,8 @@ The query root (accessible via `root`) is set to `[HEAD]`.
 |                      |           properties:                                           |
 |                      |             title: Do this and that                             |
 |                      |             ...                                                 |
-|                      |       - node: [org.yourproject.store.uuid]\.                    |
-|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               objects.da6e97fc-8566-4c43-8e5e-9e8510a273ee      |
 |                      |         type: object                                            |
 |                      |         object:                                                 |
@@ -2499,7 +2525,7 @@ The query root (accessible via `root`) is set to `[HEAD]`.
 ### `POST /classes/:class/query`
 
 Like `POST /query` except that the query root is set to
-`[HEAD].classes.<:class>` instead of `[HEAD]`.
+`(HEAD).classes.<:class>` instead of `(HEAD)`.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     POST /consonant/api/1.0/classes/lane/query                  |
@@ -2513,8 +2539,8 @@ Like `POST /query` except that the query root is set to
 |                      |         - root                                                  |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     self:                                                       |
-|                      |       - node: [org.yourproject.store.uuid]\.                    |
-|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               class.lane                                        |
 |                      |         type: class                                             |
 |                      |         class:                                                  |
@@ -2528,7 +2554,7 @@ Like `POST /query` except that the query root is set to
 ### `POST /classes/:class/objects/:uuid/query`
 
 Like `POST /query` except that the query root is set to
-`[HEAD].objects.<:uuid>` instead of `[HEAD]`.
+`(HEAD).objects.<:uuid>` instead of `(HEAD)`.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     POST /consonant/api/1.0/classes/card/objects/               |
@@ -2543,8 +2569,8 @@ Like `POST /query` except that the query root is set to
 |                      |         - root                                                  |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     self:                                                       |
-|                      |       - node: [org.yourproject.store.uuid]\.                    |
-|                      |               [61aacb46f36f50f6c1cdcc5a231b8140e08382c1].\      |
+|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               objects.ccb920a2-810a-4264-b022-d92f36f849bf      |
 |                      |         type: object                                            |
 |                      |         object:                                                 |
@@ -2564,8 +2590,8 @@ Like `POST /classes/:class/object/:uuid/query`.
 
 ### `POST /refs/:ref/query`
 
-Like `POST /query` except that the query root is set to `[:ref]`
-instead of `[HEAD]`.
+Like `POST /query` except that the query root is set to `(:ref)`
+instead of `(HEAD)`.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     POST /consonant/api/1.0/refs/some-branch/query              |
@@ -2579,8 +2605,8 @@ instead of `[HEAD]`.
 |                      |         - root                                                  |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     self:                                                       |
-|                      |       - node: [org.yourproject.store.uuid]\.                    |
-|                      |               [5c37acbad6f545445eaf07983b40e11d4d7354dc]        |
+|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |               (5c37acbad6f545445eaf07983b40e11d4d7354dc)        |
 |                      |         type: commit                                            |
 |                      |         commit:                                                 |
 |                      |           sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc        |
@@ -2597,18 +2623,18 @@ instead of `[HEAD]`.
 ### `POST /refs/:ref/classes/:class/query`
 
 Like `POST /classes/:class/query` except that the query root is set to \
-`[:ref].classes.<:class>` instead of `[HEAD].classes.<:class>`.
+`(:ref).classes.<:class>` instead of `(HEAD).classes.<:class>`.
 
 ### `POST /refs/:ref/classes/:class/objects/:uuid/query`
 
 Like `POST /classes/:class/objects/:uuid/query` except that the query
-root is set to `[:ref].objects.<:uuid>` instead of
-`[HEAD].objects.<:uuid>`.
+root is set to `(:ref).objects.<:uuid>` instead of
+`(HEAD).objects.<:uuid>`.
 
 ### `POST /refs/:ref/objects/:uuid/query`
 
 Like `POST /objects/:uuid/query` except that the query root is set to
-`[:ref].objects.<:uuid>` instead of `[HEAD].objects.<:uuid>`.
+`(:ref).objects.<:uuid>` instead of `(HEAD).objects.<:uuid>`.
 
 ## Streaming API
 
