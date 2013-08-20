@@ -2499,7 +2499,7 @@ The query root (accessible via `root`) is set to `(HEAD)`.
 |                      |           attribute: card.assignees                             |
 |                      |           inverted: true                                        |
 +----------------------+-----------------------------------------------------------------+
-| **Example response** |     unassigend-backlog-cards:                                   |
+| **Example response** |     unassigned-backlog-cards:                                   |
 |                      |       - node: (org.yourproject.store.uuid).                     |
 |                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               objects.5d8cc1d1-c28a-4c99-9634-0c9f93268a2a      |
