@@ -1156,38 +1156,35 @@ should be returned as YAML or JSON:
 ### `GET /classes`
 
 Returns a YAML or JSON dictionary mapping the names of all classes
-available in the store to some meta data, including:
-
-* the number of objects of the class,
-* TODO...?
+available in the store to a list of object references.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/classes                              |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     lane:                                                       |
 |                      |       objects:                                                  |
-|                      |         total:  7                                               |
-|                      |         active: 5                                               |
-|                      |         hidden: 2                                               |
+|                      |         - uuid: e745d748-8430-4809-8929-d6ab1a387054            |
+|                      |         - uuid: 737d5a4c-a98e-4709-bbe9-3bfc4d01fe8b            |
+|                      |         - uuid: 4f7aaf42-36c6-4a0b-b6b4-dd055afec77f            |
 |                      |     card:                                                       |
 |                      |       objects:                                                  |
-|                      |         total:  233                                             |
-|                      |         active: 217                                             |
-|                      |         hidden: 16                                              |
+|                      |         - uuid: 35bc0cf8-c278-40fc-aa62-b395b48f159d            |
+|                      |         - uuid: 409ec7c2-1d3b-4963-8589-92d0bdbd2252            |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /classes/:class`
 
-Like `GET /classes` but fetches the meta data for a single class only.
+Like `GET /classes` but fetches the list of object references for a
+single class only.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/classes/lane                         |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     lane:                                                       |
 |                      |       objects:                                                  |
-|                      |         total:  7                                               |
-|                      |         active: 5                                               |
-|                      |         hidden: 2                                               |
+|                      |         - uuid: e745d748-8430-4809-8929-d6ab1a387054            |
+|                      |         - uuid: 737d5a4c-a98e-4709-bbe9-3bfc4d01fe8b            |
+|                      |         - uuid: 4f7aaf42-36c6-4a0b-b6b4-dd055afec77f            |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /classes/:class/objects`
@@ -2546,9 +2543,9 @@ Like `POST /query` except that the query root is set to
 |                      |         class:                                                  |
 |                      |           name: lane                                            |
 |                      |           objects:                                              |
-|                      |             total: 11                                           |
-|                      |             active: 8                                           |
-|                      |             hidden: 3                                           |
+|                      |             - uuid: e745d748-8430-4809-8929-d6ab1a387054        |
+|                      |             - uuid: 737d5a4c-a98e-4709-bbe9-3bfc4d01fe8b        |
+|                      |             - uuid: 4f7aaf42-36c6-4a0b-b6b4-dd055afec77f        |
 +----------------------+-----------------------------------------------------------------+
 
 ### `POST /classes/:class/objects/:uuid/query`
