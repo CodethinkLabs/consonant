@@ -8,8 +8,8 @@
 * What if the `consonant.yaml` file changes over time. What if the
   schema being used changes incompatibly or the `consonant.yaml` file
   out of a sudden points to a different version of a schema?
-  What if the UUID changes? What if the schema is different between
-  different branches of a store?
+  What if the store name or schema name changes? What if the schema
+  is different between different branches of a store?
 * Do we know that Git copes well with trees that have thousands of
   entries? Hack up a test repository and run something with pygit2
   against it.
@@ -114,7 +114,7 @@ are relevant in a professional/business and distributed work context
 in particular, where users are traveling or offline a lot but still
 want to be able to do work.
 
-Via Git repositories, schema and store UUIDs and the Consonant register,
+Via Git repositories, schema and store names and the Consonant register,
 Consonant provides a way to link stores and services together flexibly,
 no matter whether they are running remotely or locally.
 
@@ -128,7 +128,7 @@ aspects of the Consonant design.
 * A *Consonant service* is a service that provides access to a
   Consonant store via the Consonant web API.
 * A *Consonant register* is a YAML file that maps Consonant schema and
-  service UUIDs to Consonant services.
+  service names to Consonant services.
 * A *Consonant schema* is a YAML file that defines classes for objects
   with typed properties.
 
@@ -185,7 +185,7 @@ with a commit or not, represents a particular version or revision of
 the store's data. The following elements are present in a tree:
 
 1. A top-level `consonant.yaml` file that contains
-    - the store UUID,
+    - the store name,
     - a reference to the schema defining the object classes used in
       the store,
     - a set of aliased references to external services for
@@ -223,14 +223,13 @@ This is how an example tree for a simple kanban system could look like:
 
 ## The `consonant.yaml` file
 
-This file defines the universally unique ID (UUID) and structure of
-the store as well as external stores that objects are or may be
-linking to.
+This file defines a symbolic name and structure of the store as well
+as external stores that objects are or may be linking to.
 
 It is a YAML file with three top-level keys:
 
-1. `uuid`: Defines the unique ID of the store. The format of store
-   UUIDs is specified in the *UUIDs* section.
+1. `name`: Defines the name of the store. The format of store names is
+   specified in the *Names and UUIDs* section.
 2. `schema`: A schema reference stating the schema being used in the
    store. This schema defines the object classes available in the store
    and specifies names and types of object properties. For the format
@@ -245,7 +244,7 @@ It is a YAML file with three top-level keys:
 Schema references are strings in one of the following formats,
 referencing local or remote schemas:
 
-1. `<schema UUID>`: Reference to a schema by UUID. This reference is
+1. `<schema name>`: Reference to a schema by name. This reference is
    resolved via the Consonant register (see the *Consonant register*
    section).
 2. `<scheme>://<url to a schema>`: URL to a schema file. Implementations
@@ -256,7 +255,7 @@ referencing local or remote schemas:
 Service references are strings in one of the following formats,
 referencing external Consonant services.
 
-1. `<service UUID>`: Reference to a service by UUID. This reference is
+1. `<service name>`: Reference to a service by name. This reference is
    resolved via the consonant register (see the *Consonant register*
    section).
 2. `<scheme>://<url to a service>`: URL to a Consonant service.
@@ -271,7 +270,7 @@ The following example shows a hypothetical `consonant.yaml` file for
 a kanban system that uses its own schema and supports cross-references
 to a bug tracking system built on top of Consonant.
 
-    uuid: org.yourproject.kanban.store
+    name: org.yourproject.kanban.store
     schema: org.yourproject.kanban.schema.1
     stores:
         issues: http://issues.yourproject.org/
@@ -386,13 +385,38 @@ in the following file:
 
     /attachment/76655bcd-576c-4aad-8337-1200dfe005f6/raw/data
 
-## UUIDs
+## Names and UUIDs
 
-Universally unique identifiers (UUIDs) are being used to refer to other
-objects, schemas or stores/services. Universality of identifiers is not
-enforced: while creators of schemas and stores are encouraged to use
-globally unique identifiers (see below), there is no way to guarantee
-this. Identifiers of objects only have to be unique within a store.
+Names and universally unique identifiers (UUIDs) are being used to refer
+to schemas, stores and objects, respectively. Universality of
+identifiers is not enforced: while creators of schemas and stores are
+encouraged to use globally unique identifiers (see below), there is no
+way to guarantee this. Identifiers of objects only have to be unique
+within a store.
+
+### Schema names
+
+Identifiers of schemas are required to be of the form
+
+    some.domain.schemaname.1
+
+meaning that they follow a reverse domain notation similar to that used
+for Java packages/classes and D-Bus service names. A special requirement
+is the mandatory final segment of the name, which specifies the schema
+version:
+
+    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)*\.[0-9]+$
+
+### Store/service names
+
+Identifiers of stores/services are required to be of the form
+
+    some.domain.storename
+
+meaning that they follow the same reverse domain notation as schema
+names except for not requiring a version number segment at the end:
+
+    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)$
 
 ### Object UUIDs
 
@@ -410,35 +434,11 @@ strongly recommended.
 It is mandatory that applications place no semantic meaning on object
 UUIDs.
 
-### Schema UUIDs
-
-Identifiers of schemas are required to be of the form
-
-    some.domain.schemaname.1
-
-meaning that they follow a reverse domain notation similar to that used
-for Java packages/classes and D-Bus service names. A special requirement
-is the mandatory final segment of the UUID, which specifies the schema
-version:
-
-    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)*\.[0-9]+$
-
-### Store/service UUIDs
-
-Identifiers of stores/services are required to be of the form
-
-    some.domain.storename
-
-meaning that they follow the same reverse domain notation as schema
-UUIDs except for not requiring a version number segment at the end:
-
-    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)$
-
 ## The Consonant register
 
 The *Consonant register* is a special configuration file that allows
 to register Consonant services and schemas system-wide or per-user. It is
-is used to resolve UUID-based schema and store imports in
+is used to resolve name-based schema and store imports in
 `consonant.yaml`.
 
 The Consonant register is located according to the
@@ -453,11 +453,11 @@ and the user register is stored in
 
 Register files are YAML files that contain the following two keys:
 
-1. `schemas`: a dictionary mapping schema UUIDs and URLs to local file
+1. `schemas`: a dictionary mapping schema names and URLs to local file
    paths.
-2. `services`: a dictionary mapping service UUIDs to service URLs.
+2. `services`: a dictionary mapping service names to service URLs.
 
-Whenever the same UUID appears in both the system-wide register
+Whenever the same name appears in both the system-wide register
 and the per-user register the mapping in the user register takes
 precedence and overrides the system-wide one.
 
@@ -492,7 +492,7 @@ use in a Consonant store.
 Schemas are defined via YAML files, of which there is one per schema.
 Schema files contain the following top-level keys:
 
-* `uuid`: the UUID of the schema (see the *Schemas* section for more
+* `name`: the name of the schema (see the *Schemas* section for more
   information).
 * `classes`: a mapping of class names to class definitions, each
   consisting of a set of property definitions.
@@ -516,7 +516,7 @@ The following example shows (partial) hypothetical schema for a kanban
 system based on Consonant, defining two classes for kanban lanes and
 cards, respectively:
 
-    uuid: org.yourproject.kanban.schema1
+    name: org.yourproject.kanban.schema1
     classes:
         lane:
             properties:
@@ -593,7 +593,7 @@ cards might have a boolean property `doable` to mark them as small
 tasks that can be completed in less then a day. In the schema, this
 would look as follows:
 
-    uuid: org.yourproject.kanban.schema.1
+    name: org.yourproject.kanban.schema.1
     classes:
         card:
             properties:
@@ -626,7 +626,7 @@ cards might have an optional `estimated-days` property to estimate the
 amount of days needed to finish the corresponding tasks. The resulting
 schema would look as follows:
 
-    uuid: org.myproject.kanban.schema.1
+    name: org.myproject.kanban.schema.1
     classes:
         card:
             properties:
@@ -669,7 +669,7 @@ floating point property for the current amount of money in the
 account. The resulting schema would
 look as follows:
 
-    uuid: uk.me.yourname.banking.schema.1
+    name: uk.me.yourname.banking.schema.1
     classes:
         account:
             properties:
@@ -711,7 +711,7 @@ Assume we were to define a Consonant schema for a kanban system that
 includes lanes with a title, an optional description and a CSS color.
 The schema for this might look as follows:
 
-    uuid: org.yourproject.kanban.schema.1
+    name: org.yourproject.kanban.schema.1
     classes:
         lane:
             properties:
@@ -761,7 +761,7 @@ Assume we were to define a Consonant schema for a kanban system that
 includes cards with a title and a list of arbitrary attachments:
 The schema for this might look as follows:
 
-    uuid: org.yourproject.kanban.schema.1
+    name: org.yourproject.kanban.schema.1
     classes:
         card:
             properties:
@@ -837,7 +837,7 @@ Assume we were to define a Consonant schema for a kanban system with
 cards that optionally have arbitrary strings attached as tags. The
 resulting schema might then look like this:
 
-    uuid: org.yourproject.kanban.schema.1
+    name: org.yourproject.kanban.schema.1
     classes:
         card:
             properties:
@@ -881,16 +881,16 @@ Internal reference properties are defined as follows:
         class: <target class name>
 
 Reference properties for linking to objects in another store are
-defined by adding a schema UUID to the property definition:
+defined by adding a schema name to the property definition:
 
     <name>:
         type: reference
         class: <target class name>
-        schema: <schema UUID>
+        schema: <schema name>
 
 Note that the above only specifies the schema, allowing Consonant
 implementations to locate the class definition of referenced objects
-from the schema the UUID is resolved to. The schema does not specify
+from the schema the name is resolved to. The schema does not specify
 in which store(s) the referenced external objects are held. This
 is purely encoded in the actual property values and may vary from
 store to store.
@@ -919,7 +919,7 @@ and cards, where lanes and cards have a one-to-many relationship and
 cards may optionally refer to external issue objects in an issue
 tracker. The kanban schema for this could include the following:
 
-    uuid: org.yourproject.kanban.schema.1
+    name: org.yourproject.kanban.schema.1
     classes:
         lane:
             properties:
@@ -945,7 +945,8 @@ tracker. The kanban schema for this could include the following:
 
 With this, every lane in the kanban store would have to have a list of
 the cards in the lane in the `cards` property. An example could be the
-`properties.yaml` file of a lane with the UUID `doing`:
+`properties.yaml` file of a lane with the UUID
+`0f8c8db0-c941-4cd4-947f-0731da98fb40`:
 
     title: Doing
     cards:
@@ -958,7 +959,7 @@ lane they are in via the `lane` property` and could additional store
 a reference to an external issue:
 
     title: Fix bug #5942
-    lane: doing
+    lane: 0f8c8db0-c941-4cd4-947f-0731da98fb40
     issue:
         service: issues
         uuid: ab63d142-0af1-45a8-b813-8dd7e39ffd6e
@@ -1075,7 +1076,7 @@ First, the request using YAML:
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     Content-Type: application/x-yaml                            |
 |                      |                                                                 |
-|                      |     uuid: org.yourproject.kanban.schema.1                       |
+|                      |     name: org.yourproject.kanban.schema.1                       |
 |                      |     classes:                                                    |
 |                      |       lane:                                                     |
 |                      |         properties:                                             |
@@ -1100,7 +1101,7 @@ Second, the same request using JSON:
 | **Example response** |     Content-Type: application/json                              |
 |                      |                                                                 |
 |                      |     {                                                           |
-|                      |       "uuid": "org.yourproject.kanban.schema.1",                |
+|                      |       "name": "org.yourproject.kanban.schema.1",                |
 |                      |       "classes": {                                              |
 |                      |         "lane": {                                               |
 |                      |           "properties": {                                       |
@@ -1128,16 +1129,27 @@ the schema used by the underlying store, classes, objects, properties
 and Git refs such as branches and tags. It also includes a `POST`
 method to modify objects in the store in the form of transactions.
 
+### `GET /name`
+
+Returns the store name used by the underlying store managed by the
+Consonant service. Use the HTTP `Accept` header to specify whether the
+schema should be returned as YAML or JSON:
+
++----------------------+-----------------------------------------------------------------+
+| **Example request**  |     GET /consonant/api/1.0/name                                 |
++----------------------+-----------------------------------------------------------------+
+| **Example response** |     org.yourproject.kanban.store                                |
++----------------------+-----------------------------------------------------------------+
+
 ### `GET /schema`
 
 Returns the schema used by the underlying store managed by the Consonant
-service. Use the HTTP `Accept` header to specify whether the schema
-should be returned as YAML or JSON:
+service.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/schema                               |
 +----------------------+-----------------------------------------------------------------+
-| **Example response** |     uuid: org.yourproject.kanban.schema.1                       |
+| **Example response** |     name: org.yourproject.kanban.schema.1                       |
 |                      |     classes:                                                    |
 |                      |       lane:                                                     |
 |                      |         properties:                                             |
@@ -1151,6 +1163,18 @@ should be returned as YAML or JSON:
 |                      |               bidirectional: lane                               |
 |                      |       card:                                                     |
 |                      |         ...                                                     |
++----------------------+-----------------------------------------------------------------+
+
+### `GET /services`
+
+Returns the service aliases used in the underlying store managed by
+the Consonant service.
+
++----------------------+-----------------------------------------------------------------+
+| **Example request**  |     GET /consonant/api/1.0/services                             |
++----------------------+-----------------------------------------------------------------+
+| **Example response** |     issues: org.yourproject.issues.store                        |
+|                      |     kanban: org.yourproject.kanban.store                        |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /classes`
@@ -1455,6 +1479,9 @@ works against a specific Git ref instead of `HEAD`.
 
 This means the methods
 
+* `GET /refs/:ref/name`
+* `GET /refs/:ref/schema`
+* `GET /refs/:ref/services`
 * `GET /refs/:ref/classes`
 * `GET /refs/:ref/classes/:class`
 * `GET /refs/:ref/classes/:class/objects`
@@ -1469,6 +1496,9 @@ This means the methods
 
 all provide the same interface as
 
+* `GET /name`
+* `GET /schema`
+* `GET /services`
 * `GET /classes`
 * `GET /classes/:class`
 * `GET /classes/:class/objects`
@@ -2080,7 +2110,7 @@ The above example will yield a result of the following form, without
 including the result of `_lanes-with-cards`:
 
     cards:
-      - node: (org.yourproject.store.uuid).
+      - node: (org.yourproject.store.name).
               c5d7941e2c5da3c54266012f022738a4ed49392d.
               objects.a8833d73-3acc-4a95-a0b7-1ebaca53372a
         type: object
@@ -2100,42 +2130,42 @@ nodes in the graph.
 
 Node paths are defined as follows:
 
-* `(<store uuid>)`: refers to all commit nodes in the store with the
-  given UUID;
-* `(<store uuid>).(<sha1>)`: refers to the commit node for the commit
-  with the given SHA1 in the store with the given UUID;
-* `(<store uuid>).(<sha1>)`.classes: refers to all class nodes for the
+* `(<store name>)`: refers to all commit nodes in the store with the
+  given name;
+* `(<store name>).(<sha1>)`: refers to the commit node for the commit
+  with the given SHA1 in the store with the given name;
+* `(<store name>).(<sha1>)`.classes: refers to all class nodes for the
   commit node for the commit with the given SHA1 in the store with
-  the given UUID;
-* `(<store uuid>).(<sha1>).classes.<name>`: refers to the class node
+  the given name;
+* `(<store name>).(<sha1>).classes.<name>`: refers to the class node
   for the given class name and commit node for the commit with the
-  given SHA1 in the store with the given UUID;
-* `(<store uuid>).(<sha1>).objects`: refers to all object nodes for the
+  given SHA1 in the store with the given name;
+* `(<store name>).(<sha1>).objects`: refers to all object nodes for the
   commit node for the commit with the given SHA1 in the store with the
-  given UUID;
-* `(<store uuid>).(<sha1>).objects.<uuid>`: refers to the object node
+  given name;
+* `(<store name>).(<sha1>).objects.<uuid>`: refers to the object node
   with the given UUID of the commit node for the given ref/sha1 in
-  the store with the given store UUID.
+  the store with the given store name.
 
 In addition, there are ambiguous node paths for refering to commits,
 class and objects pointed to by a Git ref:
 
-* `(<store uuid>).(<ref>)`: refers to all object nodes of the commit
-  node of the given Git ref in the store with the given UUID;
-* `(<store uuid>).(<ref>)`.classes: refers to all class nodes of the
-  commit node for the given Git ref in the store with the given UUID;
-* `(<store uuid>).(<ref>).classes.<name>`: refers to the class node
+* `(<store name>).(<ref>)`: refers to all object nodes of the commit
+  node of the given Git ref in the store with the given name;
+* `(<store name>).(<ref>)`.classes: refers to all class nodes of the
+  commit node for the given Git ref in the store with the given name;
+* `(<store name>).(<ref>).classes.<name>`: refers to the class node
   for the given class name and commit node for given Git ref in the
-  store with the given UUID;
-* `(<store uuid>).(<ref>).objects`: refers to all object nodes for
+  store with the given name;
+* `(<store name>).(<ref>).objects`: refers to all object nodes for
   the commit node for the given Git ref in the store with the given
-  store UUID.
-* `(<store uuid>).(<ref>).objects.<uuid>`: refers to the object node
+  store name.
+* `(<store name>).(<ref>).objects.<uuid>`: refers to the object node
   with the given UUID for the commit node for the given Git ref in
-  the store with the given store UUID.
+  the store with the given store name.
 
-**Note:** the `(<store uuid>)` part may be omitted from node paths
-in queries that are submitted to a store with the UUID `<store uuid>`.
+**Note:** the `(<store name>)` part may be omitted from node paths
+in queries that are submitted to a store with the name `<store name>`.
 
 #### Query root
 
@@ -2501,7 +2531,7 @@ The query root (accessible via `root`) is set to `(HEAD)`.
 |                      |           inverted: true                                        |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     unassigned-backlog-cards:                                   |
-|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |       - node: (org.yourproject.store.name).                     |
 |                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               objects.5d8cc1d1-c28a-4c99-9634-0c9f93268a2a      |
 |                      |         type: object                                            |
@@ -2511,7 +2541,7 @@ The query root (accessible via `root`) is set to `(HEAD)`.
 |                      |           properties:                                           |
 |                      |             title: Do this and that                             |
 |                      |             ...                                                 |
-|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |       - node: (org.yourproject.store.name).                     |
 |                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               objects.da6e97fc-8566-4c43-8e5e-9e8510a273ee      |
 |                      |         type: object                                            |
@@ -2540,7 +2570,7 @@ Like `POST /query` except that the query root is set to
 |                      |         - root                                                  |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     self:                                                       |
-|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |       - node: (org.yourproject.store.name).                     |
 |                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               class.lane                                        |
 |                      |         type: class                                             |
@@ -2570,7 +2600,7 @@ Like `POST /query` except that the query root is set to
 |                      |         - root                                                  |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     self:                                                       |
-|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |       - node: (org.yourproject.store.name).                     |
 |                      |               (61aacb46f36f50f6c1cdcc5a231b8140e08382c1).       |
 |                      |               objects.ccb920a2-810a-4264-b022-d92f36f849bf      |
 |                      |         type: object                                            |
@@ -2606,7 +2636,7 @@ instead of `(HEAD)`.
 |                      |         - root                                                  |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     self:                                                       |
-|                      |       - node: (org.yourproject.store.uuid).                     |
+|                      |       - node: (org.yourproject.store.name).                     |
 |                      |               (5c37acbad6f545445eaf07983b40e11d4d7354dc)        |
 |                      |         type: commit                                            |
 |                      |         commit:                                                 |
@@ -2662,7 +2692,7 @@ necessary for a simple Kanban system. It includes:
 This is pretty elaborate already. All it takes to define the above
 classes and link them together is this:
 
-    uuid: org.yourproject.kanban.schema.1
+    name: org.yourproject.kanban.schema.1
     classes:
       user:
         properties:
