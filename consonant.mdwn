@@ -1,7 +1,7 @@
 % Consonant Specification, Version 0.1
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
-% August 20th, 2013
+% September 9th, 2013
 
 # Issues to fix
 
@@ -1162,11 +1162,13 @@ available in the store to a list of object references.
 | **Example request**  |     GET /consonant/api/1.0/classes                              |
 +----------------------+-----------------------------------------------------------------+
 | **Example response** |     lane:                                                       |
+|                      |       name: lane                                                |
 |                      |       objects:                                                  |
 |                      |         - uuid: e745d748-8430-4809-8929-d6ab1a387054            |
 |                      |         - uuid: 737d5a4c-a98e-4709-bbe9-3bfc4d01fe8b            |
 |                      |         - uuid: 4f7aaf42-36c6-4a0b-b6b4-dd055afec77f            |
 |                      |     card:                                                       |
+|                      |       name: card                                                |
 |                      |       objects:                                                  |
 |                      |         - uuid: 35bc0cf8-c278-40fc-aa62-b395b48f159d            |
 |                      |         - uuid: 409ec7c2-1d3b-4963-8589-92d0bdbd2252            |
@@ -1180,11 +1182,11 @@ single class only.
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/classes/lane                         |
 +----------------------+-----------------------------------------------------------------+
-| **Example response** |     lane:                                                       |
-|                      |       objects:                                                  |
-|                      |         - uuid: e745d748-8430-4809-8929-d6ab1a387054            |
-|                      |         - uuid: 737d5a4c-a98e-4709-bbe9-3bfc4d01fe8b            |
-|                      |         - uuid: 4f7aaf42-36c6-4a0b-b6b4-dd055afec77f            |
+| **Example response** |     name: lane                                                  |
+|                      |     objects:                                                    |
+|                      |       - uuid: e745d748-8430-4809-8929-d6ab1a387054              |
+|                      |       - uuid: 737d5a4c-a98e-4709-bbe9-3bfc4d01fe8b              |
+|                      |       - uuid: 4f7aaf42-36c6-4a0b-b6b4-dd055afec77f              |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /classes/:class/objects`
@@ -1221,16 +1223,16 @@ The objects of the class are returned as a list of dictionaries.
 
 ### `GET /classes/:class/objects/:uuid`
 
-Takes a class name and object UUID and returns the properties and
-attachment names for the corresponding object. Returns a 404 if the
-class does not exist or if the object UUID does not refer to an object
-of the given class.
+Takes a class name and object UUID and returns the UUID and properties
+of the corresponding object. Returns a 404 if the class does not exist
+or if the object UUID does not refer to an object of the given class.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/classes/attachment/objects/...       |
 |                      |           b3d94ccd-0e0c-4f9f-8a6b-c01327a70336                  |
 +----------------------+-----------------------------------------------------------------+
-| **Example response** |     class: attachment                                           |
+| **Example response** |     uuid: b3d94ccd-0e0c-4f9f-8a6b-c01327a70336                  |
+|                      |     class: attachment                                           |
 |                      |     hidden: false                                               |
 |                      |     properties:                                                 |
 |                      |       title: Patch that might fix the issue                     |
@@ -1279,9 +1281,9 @@ browsers.
 ### `GET /objects`
 
 Returns all objects defined in the store, including their properties.
-The response does not include any attachment meta data or content.
-Object references are not resolved recursively; this is the
-responsibility of the client.
+The response does not include any data of raw properties, only their
+content type. Object references are not resolved recursively; this is
+the responsibility of the client.
 
 The result is a dictionary that maps class names to lists of objects.
 
@@ -1300,7 +1302,7 @@ The result is a dictionary that maps class names to lists of objects.
 |                      |       - uuid: dcb7a3e2-0da2-4ca9-befe-122ddd2b9ac2              |
 |                      |         class: lane                                             |
 |                      |         ...                                                     |
-|                      |     cards:                                                      |
+|                      |     card:                                                       |
 |                      |       - uuid: d75be68f-412f-4a5a-b59b-2c4e9cb94b2c              |
 |                      |         class: card                                             |
 |                      |         ...                                                     |
@@ -1308,15 +1310,16 @@ The result is a dictionary that maps class names to lists of objects.
 
 ### `GET /objects/:uuid`
 
-Takes an object UUID and returns the properties for the corresponding
-object. Returns a 404 if the object UUID does not refer to an existing
-object in the store.
+Takes an object UUID and returns the UUID and properties of the
+corresponding object. Returns a 404 if the object UUID does not refer
+to an existing object in the store.
 
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/objects/...                          |
 |                      |           b5decbb8-54b6-49a7-923b-7c3e04dfadca                  |
 +----------------------+-----------------------------------------------------------------+
-| **Example response** |     class: lane                                                 |
+| **Example response** |     uuid: b5decbb8-54b6-49a7-923b-7c3e04dfadca                  |
+|                      |     class: lane                                                 |
 |                      |     hidden: false                                               |
 |                      |     properties:                                                 |
 |                      |       title: Backlog                                            |
@@ -1429,19 +1432,20 @@ returns information about that ref only.
 +----------------------+-----------------------------------------------------------------+
 | **Example request**  |     GET /consonant/api/1.0/refs/master                          |
 +----------------------+-----------------------------------------------------------------+
-| **Example response** |       url-aliases:                                              |
-|                      |         - master                                                |
-|                      |         - refs:heads:master                                     |
-|                      |       head:                                                     |
-|                      |         sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc          |
-|                      |         author: Jeff Arnold <jeff@yourproject.org>              |
-|                      |         author-date: 1374684008 +0100                           |
-|                      |         committer: Jeff Arnold <jeff@yourproject.org>           |
-|                      |         committer-date: 1374782771 +0100                        |
-|                      |         subject: Archive a couple of kanban cards               |
-|                      |         parents:                                                |
-|                      |           - ff49cf94860caea73fd50c797735eeb10a3b1ab5            |
-|                      |           - 9080579c0387268fe41b4474b25b01baa2ef9f7c            |
+| **Example response** |     type: branch                                                |
+|                      |     url-aliases:                                                |
+|                      |       - master                                                  |
+|                      |       - refs:heads:master                                       |
+|                      |     head:                                                       |
+|                      |       sha1: 5c37acbad6f545445eaf07983b40e11d4d7354dc            |
+|                      |       author: Jeff Arnold <jeff@yourproject.org>                |
+|                      |       author-date: 1374684008 +0100                             |
+|                      |       committer: Jeff Arnold <jeff@yourproject.org>             |
+|                      |       committer-date: 1374782771 +0100                          |
+|                      |       subject: Archive a couple of kanban cards                 |
+|                      |       parents:                                                  |
+|                      |         - ff49cf94860caea73fd50c797735eeb10a3b1ab5              |
+|                      |         - 9080579c0387268fe41b4474b25b01baa2ef9f7c              |
 +----------------------+-----------------------------------------------------------------+
 
 ### `GET /refs/:ref/*`
@@ -1681,7 +1685,7 @@ that they usually come in the form of two parts:
 * The first part describes the type of action, the object UUID and the
   raw property name.
 * The second part contains the actual raw property data. This part is
-  only valid for the `update-attachment` action.
+  only valid for the `update-raw-property` action.
 
 The first part is a YAML or JSON segment of the form
 
