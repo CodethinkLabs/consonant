@@ -416,7 +416,7 @@ Identifiers of stores/services are required to be of the form
 meaning that they follow the same reverse domain notation as schema
 names except for not requiring a version number segment at the end:
 
-    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)$
+    ^[a-zA-Z][a-zA-Z0-9-]*(\.[a-zA-Z][a-zA-Z0-9-]*)*$
 
 ### Object UUIDs
 
