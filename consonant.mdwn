@@ -698,12 +698,17 @@ Text properties are defined in schemas as follows:
     <name>:
         type: text
 
-They may optionally include a regular expression as a validation
-requirement for implementations:
+They may optionally include a list of regular expressions as a
+validation requirement for implementations:
 
     <name>:
         type: text
-        regex: <regular expression>
+        regex:
+            - <regular expression 1>
+            - <regular expression 2>
+
+Values of the property must then match at least one of these
+regular expressions.
 
 #### Usage
 
@@ -736,8 +741,8 @@ following:
 
 Text properties can store arbitrary text including whitespace that is
 preserved by the store. If a `regex` validation rule is defined, the
-value of the text property must in addition satisfy the given regular
-expression.
+value of the text property must in addition satisfy at least one of the
+given regular expressions.
 
 ### Properties of type `raw`
 
@@ -748,12 +753,18 @@ Raw properties are defined in schemas as follows:
     <name>:
         type: raw
 
-They may optionally include a regular expression as a validation
-requirement for the content type of values stored in the raw property:
+They may optionally include a list of regular expressions as a
+validation requirement for the content type of values stored in the raw
+property:
 
     <name>:
         type: text
-        content-type-regex: <regular expression>
+        content-type-regex:
+          - <regular expression 1>
+          - <regular expression 2>
+
+The content type of property values must then match at least one of
+these regular expressions.
 
 #### Usage
 
@@ -788,8 +799,8 @@ directory of the attachments in the store with a file called `data`.
 #### Values
 
 Raw properties can store arbitrary data. If a `content-type-regex`
-validation rule is defined, the content type stored in
-`properties.yaml` must match this regular expression.
+validation rule is defined, the content type stored in `properties.yaml`
+must match at least one of the regular expressions.
 
 As part of the validation process, Consonant implementations are
 required to verify that the content type stored in `properties.yaml`
