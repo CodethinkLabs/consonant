@@ -1640,11 +1640,11 @@ and description could look as follows:
     id: 1
     class: card
     properties:
-      title: This is a new card
-      description: |
-        A two-line description for this card explaining what the
-        task is about and where developers can find additional
-        information about related APIs.
+        title: This is a new card
+        description: |
+            A two-line description for this card explaining what the
+            task is about and where developers can find additional
+            information about related APIs.
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
@@ -1673,7 +1673,8 @@ UUID could look as follows:
 
     action: delete
     id: 1
-    uuid: 3c9924d6-e5a6-4b77-8f40-92dbfaf9ff19
+    object:
+        uuid: 3c9924d6-e5a6-4b77-8f40-92dbfaf9ff19
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
@@ -1705,11 +1706,12 @@ title and assignee could look as follows:
 
     action: update
     id: 1
-    class: card
+    object:
+        uuid: db86e6ea-fea7-4431-a925-2336625af3f4
     properties:
-      title: New title for the card
-      assignees:
-          - jeff@yourproject.org
+        title: New title for the card
+        assignees:
+            - jeff@yourproject.org
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
@@ -1733,7 +1735,7 @@ The first part is a YAML or JSON segment of the form
     Content-Type: application/x-yaml
 
     action: {unset,update}-raw-property
-    object: <uuid or action ID>
+    object: <uuid or action reference>
 
 The second part is the actually raw property data, which comes in the
 form of an arbitrary `Content-Type` and data.
@@ -1753,7 +1755,8 @@ issue tracker could look as follows:
 
     action: update-raw-property
     id: 1
-    object: decf91ab-fc9c-4e3c-a838-09d704663a87
+    object:
+        uuid: decf91ab-fc9c-4e3c-a838-09d704663a87
     --NEXTPLEASE
     Content-Type: text/plain
 
@@ -1795,7 +1798,7 @@ Examples are:
   UUID is unknown.
 
 This is what the action IDs of `POST /transaction` are for: in addition
-to regular references of the form
+to regular object references of the form
 
     - uuid: <object UUID>
 
@@ -1805,6 +1808,23 @@ with optional `service` and `ref` values, references may have the form
 
 to refer to an object being created or manipulated in one of the
 create, delete or update actions of the transaction.
+
+Furthermore, actions that directly operate on a particular object, such
+as `update`, `delete`, `update-raw-property` and `unset-raw-property`
+actions, can refer to this object in two ways:
+
+The notation
+
+    object:
+        uuid: <object UUID>
+
+refers to a specific, existing object in the store. The notation
+
+    object:
+        action: <action ID>
+
+on the other hand refers to an object created in the action with the
+given ID in the same transaction.
 
 An example transaction creating a new kanban lane for reviews and moving
 a kanban card from its old lane into the new review lane could look as
@@ -1824,29 +1844,31 @@ follows:
     id: 1
     class: lane
     properties:
-      title: Review lane
-      cards:
-        - 1c562045-0e09-40ca-9f5a-08a697f598ca
+        title: Review lane
+        cards:
+            - uuid: 1c562045-0e09-40ca-9f5a-08a697f598ca
     --NEXTPLEASE
     Content-type: application/x-yaml
 
     action: update
     id: 2
-    uuid: 1c562045-0e09-40ca-9f5a-08a697f598ca
+    object:
+        uuid: 1c562045-0e09-40ca-9f5a-08a697f598ca
     properties:
-      lane:
-        action: 1
+        lane:
+            action: 1
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
     action: update
     id: 3
-    uuid: 3caf9294-d72e-4147-9bb2-d21e90782cd4
+    object:
+        uuid: 3caf9294-d72e-4147-9bb2-d21e90782cd4
     properties:
-      cards:
-        - uuid: d215eefa-8b67-47df-bb0d-134fc4640c23
-        - uuid: 04dfaa16-8368-4c30-ab2e-2b08a3800f7b
-        - uuid: 27d3d3e0-f8a3-4174-acb0-b05ad84b0746
+        cards:
+            - uuid: d215eefa-8b67-47df-bb0d-134fc4640c23
+            - uuid: 04dfaa16-8368-4c30-ab2e-2b08a3800f7b
+            - uuid: 27d3d3e0-f8a3-4174-acb0-b05ad84b0746
     --NEXTPLEASE
     Content-Type: application/x-yaml
 
