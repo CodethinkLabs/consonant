@@ -103,6 +103,18 @@ aspects of the Consonant design.
 * A *Consonant schema* is a YAML file that defines classes for objects
   with typed properties.
 
+## License
+
+The Consonant specification is licensed under the CC-BY-SA 4.0
+International License. The license summary is included below. For more
+details, see the Creative Commons website as linked:
+
+    This work is licensed under the Creative Commons
+    Attribution-ShareAlike 4.0 International License. To view a copy of
+    this license, visit http://creativecommons.org/licenses/by-sa/4.0/
+    or send a letter to Creative Commons, 444 Castro Street, Suite 900,
+    Mountain View, California, 94041, USA.
+
 # Consonant stores / data model
 
 Representing arbitrary objects in Git requires a unified data model,
