@@ -1,0 +1,46 @@
+Consonant
+=========
+
+
+Summary
+-------
+
+*Consonant* is an object-relational, cross-referenced, verifiable and
+service-oriented Git object store and corresponding web API. It is named
+after the adjective *consonant* ("characterized by harmony or
+agreement"), reflecting its focus on a unified data model and
+cross-store referencing and validation.
+
+This repository holds the source of the Consonant specification.
+
+
+Build instructions
+------------------
+
+The Consonant specification can be built in PDF or HTML format using
+pandoc. Note that the PDF generation requires LuaLaTex.
+
+To build an HTML version of the spec, run:
+
+    make html
+
+To build a PDF version of the spec, run:
+
+    make pdf
+
+The fonts used in the PDF can be changed using:
+
+    make SANS_FONT="some font" MONO_FONT="other font" pdf
+
+Both versions can be built in one go by running:
+
+    make
+
+
+Copyright
+---------
+
+Copyright (C) 2013, Codethink Limited.
+
+The Consonant specification is licensed under CC-BY-SA 4.0 International
+License. For more details see the COPYING file.

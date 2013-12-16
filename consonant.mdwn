@@ -1,6 +1,6 @@
-% Consonant Specification, Version 0.1
+% Consonant 0.1
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
-  Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
+  Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>);
 % December 16th, 2013
 
 # Introduction
@@ -103,7 +103,9 @@ aspects of the Consonant design.
 * A *Consonant schema* is a YAML file that defines classes for objects
   with typed properties.
 
-## License
+## Copyright and license
+
+Copyright &copy; 2013 Codethink Limited.
 
 The Consonant specification is licensed under the CC-BY-SA 4.0
 International License. The license summary is included below. For more
