@@ -1,36 +1,7 @@
 % Consonant Specification, Version 0.1
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>)
-% September 9th, 2013
-
-# Issues to fix
-
-* What if the `consonant.yaml` file changes over time. What if the
-  schema being used changes incompatibly or the `consonant.yaml` file
-  out of a sudden points to a different version of a schema?
-  What if the store name or schema name changes? What if the schema
-  is different between different branches of a store?
-* Do we know that Git copes well with trees that have thousands of
-  entries? Hack up a test repository and run something with pygit2
-  against it.
-* We need to define that bidirectional references may only define
-  pairs, not triangles etc.
-* We should probably separate the data model and the data interface
-  into separate specifications. The web API might change and advance
-  to another version independently of the data model.
-* The web API does not have a feature for including hidden objects,
-  e.g. via a `?hidden=true` filter.
-* The HTTP response code behavior is not documented yet.
-* We might want to define a common YAML/JSON body for error responses;
-  this is particularly important for transactions of course but also
-  for read methods where you might want to know what doesn't exist:
-  the class, the object in the class or the property that you've asked
-  for.
-* Commit "objects" currently have no useful information about what
-  objects they changed in what way. Our examples include such
-  information but in a very unclear, messy, bad way. And in the query
-  language we don't have a way to e.g. check whether an object was
-  changed in a commit yet. We need to sort that out.
+% December 16th, 2013
 
 # Introduction
 
@@ -42,9 +13,9 @@ after the adjective *consonant* ("characterized by harmony or
 agreement"), reflecting its focus on a unified data model and
 cross-store referencing and validation.
 
-Consonant is the name given to the overall design. Any implementation
-that implements this specification, i.e. uses the same data model and
-provides the same API, may call itself a "Consonant implementation".
+Consonant is the name given to the overall design. Implementations
+of this specification, i.e. solutions that use the same data model and
+provide the same API, are referred to as *Consonant implementations*.
 
 ## Motivation
 
@@ -2705,6 +2676,35 @@ Like `POST /objects/:uuid/query` except that the query root is set to
 Left to be specified in future versions.
 
 # Appendix
+
+## Open issues
+
+* What if the `consonant.yaml` file changes over time. What if the
+  schema being used changes incompatibly or the `consonant.yaml` file
+  out of a sudden points to a different version of a schema?
+  What if the store name or schema name changes? What if the schema
+  is different between different branches of a store?
+* Do we know that Git copes well with trees that have thousands of
+  entries? Hack up a test repository and run something with pygit2
+  against it.
+* We need to define that bidirectional references may only define
+  pairs, not triangles etc.
+* We should probably separate the data model and the data interface
+  into separate specifications. The web API might change and advance
+  to another version independently of the data model.
+* The web API does not have a feature for including hidden objects,
+  e.g. via a `?hidden=true` filter.
+* The HTTP response code behavior is not documented yet.
+* We might want to define a common YAML/JSON body for error responses;
+  this is particularly important for transactions of course but also
+  for read methods where you might want to know what doesn't exist:
+  the class, the object in the class or the property that you've asked
+  for.
+* Commit "objects" currently have no useful information about what
+  objects they changed in what way. Our examples include such
+  information but in a very unclear, messy, bad way. And in the query
+  language we don't have a way to e.g. check whether an object was
+  changed in a commit yet. We need to sort that out.
 
 ## Example schemas
 
