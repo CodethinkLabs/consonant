@@ -561,6 +561,8 @@ The following table lists all data types supported by Consonant schemas.
 | list        | Data type for lists of values of another basic data type.   |
 |             | Lists may not be nested.                                    |
 +-------------+-------------------------------------------------------------+
+| timestamp   | Data type for a date and time, such as those in commits.    |
++-------------+-------------------------------------------------------------+
 
 ### Properties of type `boolean`
 
@@ -982,6 +984,56 @@ the following keys:
   the store,
 * `ref`: an optional Git ref, tree, commit or tag of the target
   Consonant store.
+
+### Properties of type `timestamp`
+
+#### Definition
+
+Timestamp properties are defined in schemas as follows:
+
+    <name>:
+        type: timestamp
+
+#### Usage
+
+Assume we were to define a schema for a kanban system with cards which
+could be commented on by users. These comments would store the author,
+the content of the comment, a reference to the card they were posted on
+and also the time at which they were posted.
+
+    name: org.yourproject.kanban.schema.1
+    classes:
+        comment:
+            properties:
+                time:
+                    type: timestamp
+                author:
+                    type: reference
+                    class: user
+                text:
+                    type: text
+                card:
+                    type: reference
+                    class: card
+                    bidirectional: comments
+
+Comments in the store would now have `properties.yaml` files like the
+following:
+
+    time: 1389365904 +0100
+    author: 021b7f18-53a3-46d1-a027-1293a66fdd6a
+    text: |
+        This card should be completed as soon as possible as it is
+        integral to the next milestone.
+    card: 87a08449-c4a6-4689-bf72-c0dac784ece4
+
+#### Values
+
+Timestamp properties store a time in UNIX seconds (seconds since
+1970-01-01 00:00:00), along with a timezone that represents the
+timestamp's offset from UTC. Consonant implementations are required to
+ensure that only timestamps formatted this way (UNIX seconds followed by
+timezone offset) are stored in timestamp properties.
 
 # Consonant services / data interface
 
