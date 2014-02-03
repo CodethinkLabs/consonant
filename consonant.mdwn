@@ -2743,6 +2743,16 @@ Left to be specified in future versions.
 
 # Appendix
 
+## TODO
+
+* Consider changing service aliases in `consonant.yaml` to always force
+  a service name to be stored along with a fallback service URL. This
+  would allow resolving store aliases using the register and falling
+  back to the fallback URL if the register is not populated. At the
+  moment, if an alias is mapped to a service URL, there is no way to
+  resolve via the register unless the store meta data is modified.
+  This in turn would make local clones of services easier.
+
 ## Open issues
 
 * What if the `consonant.yaml` file changes over time. What if the
