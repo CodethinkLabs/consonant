@@ -1,7 +1,7 @@
 % Consonant 0.1
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>);
-% December 16th, 2013
+% February 3rd, 2014
 
 # Introduction
 
@@ -1577,6 +1577,7 @@ can be obtained via a separate method `GET /commits/:sha1`.
 Takes `multipart/mixed` data representing one or more transactions, each
 including one or more actions, including
 
+* store meta data updates,
 * object creation and deletion,
 * object manipulation, and
 * raw property manipulation.
@@ -1650,6 +1651,45 @@ a `commit` action:
     committer: IRC Code Review Bot <reviewbot@yourproject.org>
     committer-date: 1374782771 +0100
     message: +1 by Samuel to merge request MR3912
+
+#### Metadata updates
+
+Updating the store metadata (`consonant.yaml`) is performed via
+`update-metadata` actions. These actions hold the metadata to update
+in a `data` key. The `data` key is expected to map to a dictionary that
+has the same format as the `consonant.yaml` file and may hold a subset
+of its metadata.
+
+An example transaction updating the schema name and service aliases
+used in a store could look as follows:
+
+    Content-Type: multipart/mixed; boundary=NEXTPLEASE
+
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: begin
+    source: 8606830399b5f46100ee0985154662dabe9d1080
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: update-metadata
+    data:
+        schema: this.new.schema.2
+        services:
+            issues: name.of.an.issues.service
+            todos: name.of.a.todo.service
+    --NEXTPLEASE
+    Content-Type: application/x-yaml
+
+    action: commit
+    target: refs/heads/master
+    ...
+
+Consonant implementations are required to verify whether the new schema
+can be resolved and whether the store data resulting from changing the
+meta data is still valid. If any of this is not the case, the
+transaction is to be rejected.
 
 #### Object creation
 
