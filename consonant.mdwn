@@ -1,7 +1,7 @@
 % Consonant 0.1
 % Daniel Silverstone (<daniel.silverstone@codethink.co.uk>);
   Jannis Pohlmann (<jannis.pohlmann@codethink.co.uk>);
-% December 16th, 2013
+% January 28th, 2014
 
 # Introduction
 
@@ -1773,8 +1773,9 @@ The first part is a YAML or JSON segment of the form
 
     action: {unset,update}-raw-property
     object: <uuid or action reference>
+    property: <property name>
 
-The second part is the actually raw property data, which comes in the
+The second part is the actual raw property data, which comes in the
 form of an arbitrary `Content-Type` and data.
 
 An example transaction that sets the `patch` property of an issue in an
@@ -1794,6 +1795,7 @@ issue tracker could look as follows:
     id: 1
     object:
         uuid: decf91ab-fc9c-4e3c-a838-09d704663a87
+    property: patch
     --NEXTPLEASE
     Content-Type: text/plain
 
