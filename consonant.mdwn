@@ -745,7 +745,7 @@ validation requirement for the content type of values stored in the raw
 property:
 
     <name>:
-        type: text
+        type: raw
         content-type-regex:
           - <regular expression 1>
           - <regular expression 2>
